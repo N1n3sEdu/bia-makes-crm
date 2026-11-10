@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -70,6 +70,7 @@ export function ProductsManager({
   const [formDescription, setFormDescription] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("/logo.jpg");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formVariations, setFormVariations] = useState<ProductVariation[]>([
     { id: "var-1", name: "Cor Padrão", colorHex: "#EED7C5", sku: "SKU-VAR-1", stock: 50 }
   ]);
@@ -857,19 +858,21 @@ export function ProductsManager({
                     </p>
                     <div>
                       <input
+                        ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         id="product-image-upload"
                         onChange={handleImageFileSelect}
                         className="hidden"
                       />
-                      <label
-                        htmlFor="product-image-upload"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-xs font-bold cursor-pointer shadow-sm transition-all"
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-xs font-bold cursor-pointer shadow-md transition-all"
                       >
-                        <Upload className="w-3.5 h-3.5" />
+                        <Upload className="w-4 h-4" />
                         <span>Escolher Imagem do Computador</span>
-                      </label>
+                      </button>
                     </div>
                   </div>
                 </div>

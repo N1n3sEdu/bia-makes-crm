@@ -109,14 +109,14 @@ export function Navigation({
 
     // 2. Produtos com estoque crítico (abaixo ou igual ao estoque de segurança)
     products
-      .filter((p) => p.physicalStock - p.reservedStock <= p.safetyStock)
+      .filter((p) => p.physicalStock - p.reservedStock <= p.minStock)
       .slice(0, 3)
       .forEach((p) => {
         const disp = Math.max(0, p.physicalStock - p.reservedStock);
         items.push({
           id: `lowstock-${p.id}`,
           title: `Alerta de Estoque Baixo: ${p.sku}`,
-          description: `${p.name} possui apenas ${disp} un disponíveis (Mín: ${p.safetyStock} un).`,
+          description: `${p.name} possui apenas ${disp} un disponíveis (Mín: ${p.minStock} un).`,
           time: 'Há 10 min',
           type: 'warning',
           targetTab: 'stock',

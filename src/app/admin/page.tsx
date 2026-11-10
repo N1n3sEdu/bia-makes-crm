@@ -103,7 +103,7 @@ export default function AdminPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* CRM Tab Navigation (Filtered by User Profile/Role) */}
-        <div className="bg-white p-2 rounded-3xl border border-[#E9D9CD] shadow-sm flex items-center gap-1 overflow-x-auto scrollbar-none">
+        <div className="bg-white p-2 rounded-3xl border border-[#E9D9CD] shadow-sm flex items-center justify-start md:justify-center gap-2 overflow-x-auto scrollbar-none">
           {allowedTabs.includes("dashboard") && (
             <button
               onClick={() => setCrmActiveTab("dashboard")}

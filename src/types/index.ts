@@ -69,6 +69,9 @@ export interface StockMovement {
 
 export type ChannelType = 
   | 'SITE' 
+  | 'INSTAGRAM'
+  | 'FACEBOOK'
+  | 'WHATSAPP'
   | 'MERCADO_LIVRE' 
   | 'SHOPEE' 
   | 'AMAZON' 
@@ -83,6 +86,7 @@ export type OrderStatus =
   | 'SEPARACAO' 
   | 'ENVIADO' 
   | 'CONCLUIDO' 
+  | 'DEVOLUCAO'
   | 'CANCELADO';
 
 export interface OrderItem {
@@ -147,6 +151,8 @@ export interface FinancialMetric {
   profitMargin: number;
   ordersCount: number;
   averageTicket: number;
+  refundedAmount?: number;
+  refundedOrdersCount?: number;
 }
 
 export type UserRole = 'ADMIN' | 'GERENTE' | 'ESTOQUE' | 'VENDAS' | 'FINANCEIRO';

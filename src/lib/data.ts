@@ -403,10 +403,143 @@ export const initialOrders: Order[] = [
     shippingAddress: "Rua XV de Novembro, 890 - Centro, Curitiba/PR",
     trackingCode: "TTK4481029BR",
     createdAt: "2026-11-07T14:20:00Z"
+  },
+  {
+    id: "ord-1005",
+    orderNumber: "BM-2026-1005",
+    channel: "INSTAGRAM",
+    customerName: "Larissa Manoela Ramos",
+    customerEmail: "larissa.ramos@gmail.com",
+    customerPhone: "(11) 99887-1122",
+    items: [
+      {
+        productId: "prod-1",
+        productName: "Base Líquida Velvet Matte HD",
+        sku: "BM-BASE-01-T01",
+        variationName: "Tom 01 — Porcelana Clara",
+        quantity: 1,
+        price: 79.90
+      },
+      {
+        productId: "prod-6",
+        productName: "Pó Translúcido Ultrafino HD Efeito Blur",
+        sku: "BM-PO-06-INC",
+        variationName: "Incolor Translúcido Universal",
+        quantity: 1,
+        price: 49.90
+      }
+    ],
+    totalAmount: 129.80,
+    shippingAmount: 0,
+    status: "PAGO",
+    paymentMethod: "Instagram Direct / PIX",
+    shippingAddress: "Alameda Santos, 1400 - Cerqueira César, São Paulo/SP",
+    trackingCode: "IGBR8892102BR",
+    createdAt: "2026-11-10T14:15:00Z"
+  },
+  {
+    id: "ord-1006",
+    orderNumber: "BM-2026-1006",
+    channel: "FACEBOOK",
+    customerName: "Fernanda Costa",
+    customerEmail: "fer.costa@hotmail.com",
+    customerPhone: "(21) 98877-3344",
+    items: [
+      {
+        productId: "prod-3",
+        productName: "Paleta de Sombras Nude Glamour",
+        sku: "BM-PAL-03-RG",
+        variationName: "Edição Rosé Gold Glamour",
+        quantity: 1,
+        price: 99.90
+      }
+    ],
+    totalAmount: 99.90,
+    shippingAmount: 11.90,
+    status: "SEPARACAO",
+    paymentMethod: "Facebook Marketplace / Cartão",
+    shippingAddress: "Rua Barata Ribeiro, 300 - Copacabana, Rio de Janeiro/RJ",
+    createdAt: "2026-11-10T12:05:00Z"
+  },
+  {
+    id: "ord-1007",
+    orderNumber: "BM-2026-1007",
+    channel: "WHATSAPP",
+    customerName: "Patrícia Silveira",
+    customerEmail: "patricia.silveira@gmail.com",
+    customerPhone: "(19) 99122-8899",
+    items: [
+      {
+        productId: "prod-5",
+        productName: "Sérum Facial Iluminador Glow",
+        sku: "BM-SER-05-30ML",
+        variationName: "Frasco 30ml",
+        quantity: 2,
+        price: 59.90
+      }
+    ],
+    totalAmount: 119.80,
+    shippingAmount: 0,
+    status: "PAGO",
+    paymentMethod: "WhatsApp Pay / PIX",
+    shippingAddress: "Av. Brasil, 750 - Jardim Brasil, Campinas/SP",
+    createdAt: "2026-11-10T13:45:00Z"
   }
 ];
 
 export const initialChannels: MarketplaceChannel[] = [
+  {
+    id: "chan-site",
+    code: "SITE",
+    name: "Loja Virtual Oficial (Site)",
+    status: "CONECTADO",
+    accountName: "Bia Makes E-commerce",
+    storeUrl: "https://biamakes.com.br",
+    activeAds: 36,
+    feePercentage: 0.99,
+    defaultShippingValue: 0.00,
+    lastSync: "2026-11-10T14:45:00Z",
+    color: "#7A3F51"
+  },
+  {
+    id: "chan-insta",
+    code: "INSTAGRAM",
+    name: "Instagram Shopping & Direct",
+    status: "CONECTADO",
+    accountName: "@biamakeoficial_",
+    storeUrl: "https://instagram.com/biamakeoficial_",
+    activeAds: 28,
+    feePercentage: 2.5,
+    defaultShippingValue: 9.90,
+    lastSync: "2026-11-10T14:30:00Z",
+    color: "#E1306C"
+  },
+  {
+    id: "chan-fb",
+    code: "FACEBOOK",
+    name: "Facebook Loja / Meta",
+    status: "CONECTADO",
+    accountName: "Bia Makes Beauty",
+    storeUrl: "https://facebook.com/biamakes",
+    activeAds: 15,
+    feePercentage: 2.5,
+    defaultShippingValue: 11.90,
+    lastSync: "2026-11-10T14:00:00Z",
+    color: "#1877F2"
+  },
+  {
+    id: "chan-wpp",
+    code: "WHATSAPP",
+    name: "WhatsApp Vendas VIP",
+    status: "CONECTADO",
+    accountName: "+55 11 98765-4321",
+    storeUrl: "https://wa.me/5511987654321",
+    activeAds: 20,
+    feePercentage: 0.99,
+    defaultShippingValue: 0.00,
+    lastSync: "2026-11-10T14:50:00Z",
+    color: "#25D366"
+  },
   {
     id: "chan-1",
     code: "MERCADO_LIVRE",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import {
   Product,
   ProductVariation,
@@ -76,8 +76,56 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   const [movements, setMovements] = useState<StockMovement[]>(initialStockMovements);
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [channels, setChannels] = useState<MarketplaceChannel[]>(initialChannels);
-  const [financial] = useState<FinancialMetric>(initialFinancial);
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
+
+  // Dynamically compute financial metrics removing DEVOLUCAO and CANCELADO orders automatically
+  const financial: FinancialMetric = useMemo(() => {
+    const refundedOrders = orders.filter(
+      (o) => o.status === "DEVOLUCAO" || o.status === "CANCELADO"
+    );
+    const refundedAmount = refundedOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+    const refundedOrdersCount = refundedOrders.length;
+
+    // Calculate CMV and fees of refunded orders to deduct accurately
+    let refundedCmv = 0;
+    refundedOrders.forEach((o) => {
+      o.items.forEach((item) => {
+        const prod = products.find(
+          (p) => p.id === item.productId || p.sku === item.sku
+        );
+        const unitCost = prod ? prod.costPrice : item.price * 0.38;
+        refundedCmv += unitCost * item.quantity;
+      });
+    });
+
+    const refundedFees = refundedAmount * 0.14;
+    const grossRevenue = Math.max(0, initialFinancial.grossRevenue - refundedAmount);
+    const marketplaceFees = Math.max(0, initialFinancial.marketplaceFees - refundedFees);
+    const cmv = Math.max(0, initialFinancial.cmv - refundedCmv);
+    const operatingExpenses = initialFinancial.operatingExpenses;
+    const netProfit = Math.max(
+      0,
+      grossRevenue - marketplaceFees - cmv - operatingExpenses
+    );
+    const ordersCount = Math.max(0, initialFinancial.ordersCount - refundedOrdersCount);
+    const profitMargin =
+      grossRevenue > 0 ? Number(((netProfit / grossRevenue) * 100).toFixed(2)) : 0;
+    const averageTicket =
+      ordersCount > 0 ? Number((grossRevenue / ordersCount).toFixed(2)) : 0;
+
+    return {
+      grossRevenue,
+      marketplaceFees,
+      cmv,
+      operatingExpenses,
+      netProfit,
+      profitMargin,
+      ordersCount,
+      averageTicket,
+      refundedAmount,
+      refundedOrdersCount,
+    };
+  }, [orders, products]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -85,6 +133,28 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminUser, setAdminUser] = useState<SystemUser>(defaultAdminUser);
   const [hydrated, setHydrated] = useState(false);
+
+  // Helper to re-read updated data from storage
+  const reloadFromStorage = () => {
+    try {
+      const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      if (savedProducts) setProducts(JSON.parse(savedProducts));
+
+      const savedMovements = localStorage.getItem(STORAGE_KEYS.MOVEMENTS);
+      if (savedMovements) setMovements(JSON.parse(savedMovements));
+
+      const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      if (savedOrders) setOrders(JSON.parse(savedOrders));
+
+      const savedChannels = localStorage.getItem(STORAGE_KEYS.CHANNELS);
+      if (savedChannels) setChannels(JSON.parse(savedChannels));
+
+      const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (savedUsers) setUsers(JSON.parse(savedUsers));
+    } catch (e) {
+      console.error("Erro ao sincronizar do localStorage", e);
+    }
+  };
 
   // Load persisted state from localStorage
   useEffect(() => {
@@ -128,6 +198,34 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setHydrated(true);
     }
+  }, []);
+
+  // 1. Sincronização em tempo real entre abas / janelas (evento 'storage')
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === STORAGE_KEYS.PRODUCTS ||
+        e.key === STORAGE_KEYS.MOVEMENTS ||
+        e.key === STORAGE_KEYS.ORDERS ||
+        e.key === STORAGE_KEYS.CHANNELS ||
+        e.key === STORAGE_KEYS.USERS
+      ) {
+        reloadFromStorage();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // 2. Sincronização periódica a cada 5 minutos (300.000 ms)
+  useEffect(() => {
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const interval = setInterval(() => {
+      reloadFromStorage();
+    }, FIVE_MINUTES_MS);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Save state changes to localStorage
@@ -306,6 +404,134 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder || targetOrder.status === newStatus) return;
+
+    const isRefundStatus = (s: OrderStatus) =>
+      s === "DEVOLUCAO" || s === "CANCELADO";
+
+    const wasRefunded = isRefundStatus(targetOrder.status);
+    const isNowRefunded = isRefundStatus(newStatus);
+
+    // If transitioning from Active -> DEVOLUCAO or CANCELADO: return sold quantity to stock & log movement
+    if (!wasRefunded && isNowRefunded) {
+      const newMovements: StockMovement[] = [];
+
+      setProducts((prevProducts) =>
+        prevProducts.map((prod) => {
+          const matchingItems = targetOrder.items.filter(
+            (it) =>
+              it.productId === prod.id ||
+              it.sku === prod.sku ||
+              prod.variations?.some((v) => v.sku === it.sku)
+          );
+
+          if (matchingItems.length === 0) return prod;
+
+          const totalReturnedQty = matchingItems.reduce(
+            (sum, it) => sum + it.quantity,
+            0
+          );
+          const previousStock = prod.physicalStock;
+          const currentStock = previousStock + totalReturnedQty;
+
+          newMovements.push({
+            id: `mov-${Date.now()}-${prod.id}`,
+            productId: prod.id,
+            productName: prod.name,
+            sku: prod.sku,
+            type: "DEVOLUCAO",
+            quantity: totalReturnedQty,
+            previousStock,
+            currentStock,
+            reason:
+              newStatus === "DEVOLUCAO"
+                ? `Devolução do Pedido ${targetOrder.orderNumber} — Estoque devolvido (+${totalReturnedQty} un) e valor estornado`
+                : `Cancelamento do Pedido ${targetOrder.orderNumber} — Estoque devolvido (+${totalReturnedQty} un) e valor estornado`,
+            operator: `${adminUser.name} (${adminUser.role})`,
+            date: new Date().toISOString(),
+          });
+
+          const updatedVariations = prod.variations?.map((v) => {
+            const varItem = matchingItems.find(
+              (it) => it.sku === v.sku || it.variationName === v.name
+            );
+            if (varItem) {
+              return { ...v, stock: v.stock + varItem.quantity };
+            }
+            return v;
+          });
+
+          return {
+            ...prod,
+            physicalStock: currentStock,
+            variations: updatedVariations || prod.variations,
+          };
+        })
+      );
+
+      if (newMovements.length > 0) {
+        setMovements((prev) => [...newMovements, ...prev]);
+      }
+    } else if (wasRefunded && !isNowRefunded) {
+      // If transitioning back from DEVOLUCAO/CANCELADO -> Active status: deduct stock again
+      const newMovements: StockMovement[] = [];
+
+      setProducts((prevProducts) =>
+        prevProducts.map((prod) => {
+          const matchingItems = targetOrder.items.filter(
+            (it) =>
+              it.productId === prod.id ||
+              it.sku === prod.sku ||
+              prod.variations?.some((v) => v.sku === it.sku)
+          );
+
+          if (matchingItems.length === 0) return prod;
+
+          const totalDeductedQty = matchingItems.reduce(
+            (sum, it) => sum + it.quantity,
+            0
+          );
+          const previousStock = prod.physicalStock;
+          const currentStock = Math.max(0, previousStock - totalDeductedQty);
+
+          newMovements.push({
+            id: `mov-${Date.now()}-${prod.id}`,
+            productId: prod.id,
+            productName: prod.name,
+            sku: prod.sku,
+            type: "SAIDA",
+            quantity: -totalDeductedQty,
+            previousStock,
+            currentStock,
+            reason: `Reativação do Pedido ${targetOrder.orderNumber} (${newStatus}) — Baixa de estoque`,
+            operator: `${adminUser.name} (${adminUser.role})`,
+            date: new Date().toISOString(),
+          });
+
+          const updatedVariations = prod.variations?.map((v) => {
+            const varItem = matchingItems.find(
+              (it) => it.sku === v.sku || it.variationName === v.name
+            );
+            if (varItem) {
+              return { ...v, stock: Math.max(0, v.stock - varItem.quantity) };
+            }
+            return v;
+          });
+
+          return {
+            ...prod,
+            physicalStock: currentStock,
+            variations: updatedVariations || prod.variations,
+          };
+        })
+      );
+
+      if (newMovements.length > 0) {
+        setMovements((prev) => [...newMovements, ...prev]);
+      }
+    }
+
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );

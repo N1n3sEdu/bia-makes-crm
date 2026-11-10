@@ -326,35 +326,46 @@ export function CrmDashboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E9D9CD]/40">
-                {orders.slice(0, 5).map((order) => (
-                  <tr key={order.id} className="hover:bg-[#FAF7F8] transition-colors">
-                    <td className="py-3 font-semibold text-[#7A3F51]">
-                      {order.orderNumber}
-                    </td>
-                    <td className="py-3">
-                      <span className="px-2 py-0.5 bg-[#F5DDE5]/80 text-[#7A3F51] rounded-md text-[10px] font-semibold">
-                        {order.channel.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3 text-[#39313A]">{order.customerName}</td>
-                    <td className="py-3 font-bold text-[#39313A]">
-                      {formatCurrency(order.totalAmount)}
-                    </td>
-                    <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        order.status === 'CONCLUIDO' 
-                          ? 'bg-emerald-100 text-emerald-800' 
-                          : order.status === 'ENVIADO'
-                          ? 'bg-blue-100 text-blue-800'
-                          : order.status === 'SEPARACAO'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-purple-100 text-purple-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {orders.slice(0, 5).map((order) => {
+                  const isRefunded = order.status === 'DEVOLUCAO' || order.status === 'CANCELADO';
+                  return (
+                    <tr key={order.id} className={`hover:bg-[#FAF7F8] transition-colors ${isRefunded ? 'bg-red-50/30' : ''}`}>
+                      <td className="py-3 font-semibold text-[#7A3F51]">
+                        {order.orderNumber}
+                      </td>
+                      <td className="py-3">
+                        <span className="px-2 py-0.5 bg-[#F5DDE5]/80 text-[#7A3F51] rounded-md text-[10px] font-semibold">
+                          {order.channel.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="py-3 text-[#39313A]">{order.customerName}</td>
+                      <td className="py-3">
+                        <span className={`font-bold ${
+                          isRefunded
+                            ? 'line-through decoration-2 decoration-red-600 text-red-600'
+                            : 'text-[#39313A]'
+                        }`}>
+                          {formatCurrency(order.totalAmount)}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          isRefunded
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : order.status === 'CONCLUIDO' 
+                            ? 'bg-emerald-100 text-emerald-800' 
+                            : order.status === 'ENVIADO'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'SEPARACAO'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {order.status === 'DEVOLUCAO' ? 'DEVOLUÇÃO' : order.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

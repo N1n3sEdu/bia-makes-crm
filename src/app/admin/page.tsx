@@ -256,6 +256,7 @@ export default function AdminPage() {
           <FinancialManager
             financial={financial}
             channels={channels}
+            orders={orders}
           />
         )}
 

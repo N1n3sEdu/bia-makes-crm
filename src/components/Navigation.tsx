@@ -262,30 +262,6 @@ export function Navigation({
             </nav>
           )}
 
-          {/* Center Spotlight Bar (Admin CRM Only):
-              - Sem mouse próximo: exibe apenas a Lupa com "CTRL+K" ao lado, centralizado.
-              - Ao passar o mouse na região central: preenche todo o espaço central como barra completa. */}
-          {variant === 'admin' && onOpenSpotlight && (
-            <div className="flex-1 flex items-center justify-center px-2 sm:px-6 group/spotlight">
-              <button
-                type="button"
-                onClick={onOpenSpotlight}
-                title="Abrir PowerToys Spotlight (CTRL+K)"
-                className="flex items-center justify-center group-hover/spotlight:justify-between gap-2 w-auto group-hover/spotlight:w-full px-3 py-1.5 group-hover/spotlight:px-4 group-hover/spotlight:py-2.5 rounded-full bg-transparent group-hover/spotlight:bg-[#FAF7F8] border border-transparent group-hover/spotlight:border-[#E9D9CD] group-hover/spotlight:shadow-sm transition-all duration-300 ease-out cursor-pointer"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Search className="w-4 h-4 text-[#9C5B6F] shrink-0 transition-transform duration-300 group-hover/spotlight:scale-110" />
-                  <span className="max-w-0 overflow-hidden opacity-0 group-hover/spotlight:max-w-[400px] group-hover/spotlight:opacity-100 text-xs font-medium text-[#39313A]/70 whitespace-nowrap transition-all duration-300 ease-out">
-                    Spotlight / Comandos...
-                  </span>
-                </div>
-                <kbd className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#7A3F51] bg-white border border-[#E9D9CD] rounded-md shadow-2xs shrink-0">
-                  CTRL+K
-                </kbd>
-              </button>
-            </div>
-          )}
-
           {/* Right Action Icons */}
           <div className="flex items-center gap-3">
             {variant === 'storefront' ? (
@@ -305,15 +281,20 @@ export function Navigation({
             ) : (
               /* Admin Header Controls */
               <div className="flex items-center gap-2.5">
-                <Link
-                  href="/"
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] text-xs font-semibold transition-all shadow-sm"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-[#9C5B6F]" />
-                  <span className="hidden sm:inline">Ver Loja Virtual</span>
-                </Link>
+                {/* Ícones de Pesquisa (Spotlight) e Notificações lado a lado */}
+                {onOpenSpotlight && (
+                  <button
+                    type="button"
+                    onClick={onOpenSpotlight}
+                    className="p-2.5 rounded-full bg-white hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] transition-all shadow-sm flex items-center justify-center cursor-pointer group"
+                    title="Abrir Spotlight / Comandos (Ctrl+K)"
+                    aria-label="Abrir Spotlight (Ctrl+K)"
+                  >
+                    <Search className="w-4 h-4 text-[#9C5B6F] group-hover:scale-110 transition-transform" />
+                  </button>
+                )}
 
-                {/* Ícone de Notificações ao lado de "Ver Loja Virtual" */}
+                {/* Ícone de Notificações ao lado do Ícone de Pesquisa e de "Ver Loja Virtual" */}
                 <div className="relative" ref={notificationsRef}>
                   <button
                     type="button"
@@ -428,6 +409,14 @@ export function Navigation({
                     </div>
                   )}
                 </div>
+
+                <Link
+                  href="/"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] text-xs font-semibold transition-all shadow-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-[#9C5B6F]" />
+                  <span className="hidden sm:inline">Ver Loja Virtual</span>
+                </Link>
 
                 {/* Botão Clicável do Usuário Logado (Abre menu com "Importar Planilhas" e "Usuários & Perfis" para Gerente ou acima) */}
                 {adminUser && (

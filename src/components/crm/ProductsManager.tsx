@@ -17,7 +17,9 @@ import {
   Share2,
   Instagram,
   ExternalLink,
-  Copy
+  Copy,
+  Upload,
+  Image as ImageIcon
 } from "lucide-react";
 import { Product, ProductCategory, ProductVariation } from "@/types";
 import { formatCurrency, formatDateShort } from "@/lib/utils";
@@ -66,10 +68,59 @@ export function ProductsManager({
   const [formBatch, setFormBatch] = useState("LT2026-X1");
   const [formExpiryDate, setFormExpiryDate] = useState("2027-12-31");
   const [formDescription, setFormDescription] = useState("");
-  const [formImageUrl, setFormImageUrl] = useState("https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80");
+  const [formImageUrl, setFormImageUrl] = useState("/logo.jpg");
+  const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [formVariations, setFormVariations] = useState<ProductVariation[]>([
     { id: "var-1", name: "Cor Padrão", colorHex: "#EED7C5", sku: "SKU-VAR-1", stock: 50 }
   ]);
+
+  // Handle opening an image file directly from the user's computer
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+
+      // Optimize image dimensions for fast rendering and localStorage persistence
+      const img = new window.Image();
+      img.onload = () => {
+        const maxDim = 900;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.85);
+          setFormImageUrl(compressed);
+        } else {
+          setFormImageUrl(dataUrl);
+        }
+      };
+      img.onerror = () => {
+        setFormImageUrl(dataUrl);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Social & Marketplace Links Form State
   const [formInstagramUrl, setFormInstagramUrl] = useState("https://instagram.com/biamakeoficial_");
@@ -104,7 +155,8 @@ export function ProductsManager({
     setFormBatch("LT2026-X1");
     setFormExpiryDate("2027-12-31");
     setFormDescription("");
-    setFormImageUrl("https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80");
+    setFormImageUrl("/logo.jpg");
+    setSelectedFileName("");
     setFormVariations([{ id: `var-${Date.now()}`, name: "Padrão", colorHex: "#EED7C5", sku: "VAR-01", stock: 50 }]);
     setFormInstagramUrl("https://instagram.com/biamakeoficial_");
     setFormShopeeUrl("https://shopee.com.br/biamakes.beauty");
@@ -133,7 +185,8 @@ export function ProductsManager({
     setFormBatch(p.batch);
     setFormExpiryDate(p.expiryDate);
     setFormDescription(p.description);
-    setFormImageUrl(p.images[0] || "");
+    setFormImageUrl(p.images[0] || "/logo.jpg");
+    setSelectedFileName("");
     setFormVariations(p.variations || []);
     setFormInstagramUrl(p.socialLinks?.instagramUrl || "https://instagram.com/biamakeoficial_");
     setFormShopeeUrl(p.socialLinks?.shopeeUrl || "");
@@ -769,15 +822,57 @@ export function ProductsManager({
                 </div>
               </div>
 
-              {/* Row 6: Image URL & Description */}
+              {/* Row 6: Local Computer Image Picker & Description */}
               <div>
-                <label className="block font-bold text-[#39313A] mb-1">URL da Imagem Principal</label>
-                <input
-                  type="url"
-                  value={formImageUrl}
-                  onChange={(e) => setFormImageUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                />
+                <label className="block font-bold text-[#39313A] mb-1.5">
+                  Imagem Principal do Produto
+                </label>
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-[#FAF7F8] border-2 border-dashed border-[#E9D9CD] hover:border-[#9C5B6F] transition-colors">
+                  {/* Image Preview Box */}
+                  <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white border border-[#E9D9CD] shrink-0 shadow-sm">
+                    {formImageUrl ? (
+                      <Image
+                        src={formImageUrl}
+                        alt="Pré-visualização do produto"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Computer File Picker Controls */}
+                  <div className="flex-1 text-center sm:text-left space-y-2">
+                    <div className="font-bold text-[#39313A] text-xs">
+                      {selectedFileName
+                        ? `Arquivo selecionado: ${selectedFileName}`
+                        : "Selecione uma foto do produto diretamente do seu computador"}
+                    </div>
+                    <p className="text-[11px] text-[#39313A]/60">
+                      Formatos aceitos: JPG, PNG, WEBP. A imagem é ajustada automaticamente para a vitrine.
+                    </p>
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="product-image-upload"
+                        onChange={handleImageFileSelect}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="product-image-upload"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-xs font-bold cursor-pointer shadow-sm transition-all"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Escolher Imagem do Computador</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>

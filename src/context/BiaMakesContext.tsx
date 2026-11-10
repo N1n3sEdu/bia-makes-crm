@@ -39,8 +39,17 @@ interface BiaMakesContextType {
   setIsCartOpen: (open: boolean) => void;
   isAdminAuthenticated: boolean;
   adminUser: SystemUser;
+  crmActiveTab: string;
+  setCrmActiveTab: (tab: string) => void;
+  isSpotlightOpen: boolean;
+  setIsSpotlightOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  uxXrayMode: boolean;
+  setUxXrayMode: React.Dispatch<React.SetStateAction<boolean>>;
+  activeScopeName: string;
+  setActiveScopeName: (scope: string) => void;
   loginAdmin: (username: string, password: string) => { success: boolean; message?: string };
   logoutAdmin: () => void;
+  switchAdminProfile: (user: SystemUser) => void;
   addUser: (newUser: SystemUser) => void;
   updateUser: (updated: SystemUser) => void;
   deleteUser: (id: string) => void;
@@ -55,6 +64,7 @@ interface BiaMakesContextType {
   updateProductStock: (productId: string, newPhysical: number) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   syncChannel: (channelId: string) => void;
+  syncAllChannels: () => void;
   updateChannel: (updated: MarketplaceChannel) => void;
 }
 
@@ -132,6 +142,10 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminUser, setAdminUser] = useState<SystemUser>(defaultAdminUser);
+  const [crmActiveTab, setCrmActiveTab] = useState<string>("dashboard");
+  const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
+  const [uxXrayMode, setUxXrayMode] = useState<boolean>(false);
+  const [activeScopeName, setActiveScopeName] = useState<string>("Matriz Bia Makes — Todos os Canais");
   const [hydrated, setHydrated] = useState(false);
 
   // Helper to re-read updated data from storage
@@ -552,6 +566,25 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const syncAllChannels = () => {
+    const now = new Date().toISOString();
+    setChannels((prev) =>
+      prev.map((c) => ({
+        ...c,
+        lastSync: now,
+        status: "CONECTADO",
+        activeAds: Math.max(c.activeAds, products.length),
+      }))
+    );
+  };
+
+  const switchAdminProfile = (user: SystemUser) => {
+    setAdminUser(user);
+    setIsAdminAuthenticated(true);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, "true");
+    localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(user));
+  };
+
   const updateChannel = (updated: MarketplaceChannel) => {
     setChannels((prev) =>
       prev.map((c) => (c.id === updated.id ? updated : c))
@@ -572,8 +605,20 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         setIsCartOpen,
         isAdminAuthenticated,
         adminUser,
+        crmActiveTab,
+        setCrmActiveTab,
+        isSpotlightOpen,
+        setIsSpotlightOpen,
+        uxXrayMode,
+        setUxXrayMode,
+        activeScopeName,
+        setActiveScopeName,
+        toasts,
+        showToast,
+        dismissToast,
         loginAdmin,
         logoutAdmin,
+        switchAdminProfile,
         addUser,
         updateUser,
         deleteUser,
@@ -588,6 +633,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         updateProductStock,
         updateOrderStatus,
         syncChannel,
+        syncAllChannels,
         updateChannel,
       }}
     >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Package, 
   ArrowDownRight, 
@@ -83,6 +83,27 @@ export function StockManager({
     onUpdateProductStock(selectedProduct.id, currentStock);
     setIsAdjustModalOpen(false);
   };
+
+  // Global shortcuts integration: Alt+N (shortcut-new-item) and Alt+S (shortcut-save-form)
+  useEffect(() => {
+    const onNewItem = () => {
+      if (products.length > 0) {
+        handleOpenAdjust(products[0]);
+      }
+    };
+    const onSaveForm = () => {
+      if (isAdjustModalOpen) {
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        handleConfirmAdjustment(fakeEvent);
+      }
+    };
+    window.addEventListener("shortcut-new-item", onNewItem);
+    window.addEventListener("shortcut-save-form", onSaveForm);
+    return () => {
+      window.removeEventListener("shortcut-new-item", onNewItem);
+      window.removeEventListener("shortcut-save-form", onSaveForm);
+    };
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">

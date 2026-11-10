@@ -39,6 +39,8 @@ interface StorefrontProps {
   onRemoveFromCart: (index: number) => void;
   isCartOpen: boolean;
   onCloseCart: () => void;
+  selectedCategory?: ProductCategory | 'Todos';
+  onSelectCategory?: (category: ProductCategory | 'Todos') => void;
 }
 
 const categories: (ProductCategory | 'Todos')[] = [
@@ -57,9 +59,13 @@ export function Storefront({
   onUpdateCartQuantity,
   onRemoveFromCart,
   isCartOpen,
-  onCloseCart
+  onCloseCart,
+  selectedCategory: externalSelectedCategory,
+  onSelectCategory: externalOnSelectCategory,
 }: StorefrontProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
+  const [internalCategory, setInternalCategory] = useState<ProductCategory | 'Todos'>('Todos');
+  const selectedCategory = externalSelectedCategory !== undefined ? externalSelectedCategory : internalCategory;
+  const setSelectedCategory = externalOnSelectCategory || setInternalCategory;
   const [searchQuery, setSearchQuery] = useState('');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [activeVariations, setActiveVariations] = useState<Record<string, ProductVariation>>({});

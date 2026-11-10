@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, 
   Eye,
@@ -31,6 +31,22 @@ export function OrdersManager({
     order: Order;
     newStatus: OrderStatus;
   } | null>(null);
+
+  useEffect(() => {
+    const onSpotlightFilterOrder = (e: Event) => {
+      const customEv = e as CustomEvent<string>;
+      if (customEv.detail) {
+        setSearchTerm(customEv.detail);
+        const found = orders.find((o) => o.orderNumber === customEv.detail);
+        if (found) {
+          setViewingOrder(found);
+        }
+      }
+    };
+    window.addEventListener("spotlight-filter-order", onSpotlightFilterOrder);
+    return () =>
+      window.removeEventListener("spotlight-filter-order", onSpotlightFilterOrder);
+  }, [orders]);
 
   const handleStatusChange = (order: Order, newStatus: OrderStatus) => {
     const wasRefunded = order.status === "DEVOLUCAO" || order.status === "CANCELADO";

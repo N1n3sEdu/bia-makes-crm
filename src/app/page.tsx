@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Storefront } from "@/components/storefront/Storefront";
 import { useBiaMakes } from "@/context/BiaMakesContext";
+import { ProductCategory } from "@/types";
 
 export default function Home() {
   const {
@@ -18,6 +19,8 @@ export default function Home() {
     adminUser,
   } = useBiaMakes();
 
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
+
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -29,6 +32,8 @@ export default function Home() {
         onOpenCart={() => setIsCartOpen(true)}
         isAdminAuthenticated={isAdminAuthenticated}
         adminUser={adminUser}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
       />
 
       {/* Storefront View (B2C Loja Virtual) */}
@@ -41,6 +46,8 @@ export default function Home() {
           onRemoveFromCart={removeFromCart}
           isCartOpen={isCartOpen}
           onCloseCart={() => setIsCartOpen(false)}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
         />
       </main>
     </div>

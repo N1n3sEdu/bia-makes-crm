@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -247,6 +247,25 @@ export function ProductsManager({
 
     setIsModalOpen(false);
   };
+
+  // Global shortcuts integration: Alt+N (shortcut-new-item) and Alt+S (shortcut-save-form)
+  useEffect(() => {
+    const onNewItem = () => {
+      handleOpenAdd();
+    };
+    const onSaveForm = () => {
+      if (isModalOpen) {
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        handleSave(fakeEvent);
+      }
+    };
+    window.addEventListener("shortcut-new-item", onNewItem);
+    window.addEventListener("shortcut-save-form", onSaveForm);
+    return () => {
+      window.removeEventListener("shortcut-new-item", onNewItem);
+      window.removeEventListener("shortcut-save-form", onSaveForm);
+    };
+  });
 
   // Variations helper
   const handleAddVariation = () => {

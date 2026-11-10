@@ -11,6 +11,7 @@ import { MarketplacesManager } from "@/components/crm/MarketplacesManager";
 import { FinancialManager } from "@/components/crm/FinancialManager";
 import { ImportExportManager } from "@/components/crm/ImportExportManager";
 import { UsersManager } from "@/components/crm/UsersManager";
+import { CommandMenuSpotlight } from "@/components/CommandMenuSpotlight";
 import { useBiaMakes } from "@/context/BiaMakesContext";
 import AdminLoginPage from "./login/page";
 import { UserRole } from "@/types";
@@ -28,8 +29,8 @@ import {
 
 const ROLE_ALLOWED_TABS: Record<UserRole, string[]> = {
   ADMIN: ["dashboard", "products", "stock", "orders", "marketplaces", "financial", "import", "users"],
-  GERENTE: ["dashboard", "products", "stock", "orders", "marketplaces", "import"],
-  ESTOQUE: ["products", "stock", "import"],
+  GERENTE: ["dashboard", "products", "stock", "orders", "marketplaces", "financial", "import", "users"],
+  ESTOQUE: ["products", "stock"],
   VENDAS: ["dashboard", "products", "orders"],
   FINANCEIRO: ["dashboard", "orders", "financial"],
 };
@@ -46,6 +47,9 @@ export default function AdminPage() {
     cart,
     isAdminAuthenticated,
     adminUser,
+    crmActiveTab,
+    setCrmActiveTab,
+    setIsSpotlightOpen,
     logoutAdmin,
     addUser,
     updateUser,
@@ -62,13 +66,12 @@ export default function AdminPage() {
   } = useBiaMakes();
 
   const allowedTabs = ROLE_ALLOWED_TABS[adminUser?.role || "ADMIN"] || ROLE_ALLOWED_TABS.ADMIN;
-  const [crmActiveTab, setCrmActiveTab] = useState<string>(allowedTabs[0] || "dashboard");
 
   useEffect(() => {
     if (!allowedTabs.includes(crmActiveTab)) {
       setCrmActiveTab(allowedTabs[0] || "dashboard");
     }
-  }, [adminUser, allowedTabs, crmActiveTab]);
+  }, [adminUser, allowedTabs, crmActiveTab, setCrmActiveTab]);
 
   // Protect Admin Route: If not logged in, render Admin Login screen
   if (!isAdminAuthenticated) {
@@ -85,6 +88,12 @@ export default function AdminPage() {
         cartCount={totalCartItems}
         isAdminAuthenticated={isAdminAuthenticated}
         adminUser={adminUser}
+        crmActiveTab={crmActiveTab}
+        onNavigateTab={(tab) => setCrmActiveTab(tab)}
+        products={products}
+        orders={orders}
+        channels={channels}
+        onOpenSpotlight={() => setIsSpotlightOpen(true)}
         onLogoutAdmin={() => {
           logoutAdmin();
           router.push("/admin/login");
@@ -178,34 +187,6 @@ export default function AdminPage() {
               <span>Financeiro (DRE)</span>
             </button>
           )}
-
-          {allowedTabs.includes("import") && (
-            <button
-              onClick={() => setCrmActiveTab("import")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-                crmActiveTab === "import"
-                  ? "bg-[#9C5B6F] text-white shadow-md"
-                  : "text-[#39313A] hover:bg-[#F5DDE5]/40"
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Importar Planilhas</span>
-            </button>
-          )}
-
-          {allowedTabs.includes("users") && (
-            <button
-              onClick={() => setCrmActiveTab("users")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-                crmActiveTab === "users"
-                  ? "bg-[#9C5B6F] text-white shadow-md"
-                  : "text-[#39313A] hover:bg-[#F5DDE5]/40"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Usuários & Perfis</span>
-            </button>
-          )}
         </div>
 
         {/* Active Module Content */}
@@ -278,6 +259,9 @@ export default function AdminPage() {
         )}
 
       </main>
+
+      {/* PowerToys Spotlight & Global Shortcuts Engine (Exclusivo do Painel Admin) */}
+      <CommandMenuSpotlight />
     </div>
   );
 }

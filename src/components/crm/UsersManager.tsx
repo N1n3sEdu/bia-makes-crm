@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { 
   UserPlus, 
@@ -37,12 +37,12 @@ const roleDescriptions: Record<UserRole, { label: string; badge: string; permiss
   GERENTE: {
     label: "Gerente Comercial",
     badge: "bg-purple-100 text-purple-800",
-    permissions: "Acesso gerencial: Dashboard, Produtos, Estoque, Pedidos, Marketplaces e Planilhas.",
+    permissions: "Acesso gerencial: Dashboard, Produtos, Estoque, Pedidos, Marketplaces, Financeiro, Importar Planilhas e Usuários & Perfis.",
   },
   ESTOQUE: {
     label: "Operador de Estoque",
     badge: "bg-amber-100 text-amber-800",
-    permissions: "Foco operacional: Produtos, Controle Central de Estoque (Kardex) e Importação de Planilhas.",
+    permissions: "Foco operacional: Produtos e Controle Central de Estoque (Kardex).",
   },
   VENDAS: {
     label: "Consultora de Vendas",
@@ -95,6 +95,25 @@ export function UsersManager({
     setFormIsActive(u.isActive);
     setIsModalOpen(true);
   };
+
+  // Global shortcuts integration: Alt+N (shortcut-new-item) and Alt+S (shortcut-save-form)
+  useEffect(() => {
+    const onNewItem = () => {
+      handleOpenAdd();
+    };
+    const onSaveForm = () => {
+      if (isModalOpen) {
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        handleSave(fakeEvent);
+      }
+    };
+    window.addEventListener("shortcut-new-item", onNewItem);
+    window.addEventListener("shortcut-save-form", onSaveForm);
+    return () => {
+      window.removeEventListener("shortcut-new-item", onNewItem);
+      window.removeEventListener("shortcut-save-form", onSaveForm);
+    };
+  });
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

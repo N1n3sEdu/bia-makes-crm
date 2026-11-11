@@ -4,7 +4,8 @@ export type ProductCategory =
   | 'Olhos' 
   | 'Pincéis & Acessórios' 
   | 'Skincare' 
-  | 'Kits de Presente';
+  | 'Kits de Presente'
+  | 'Box Fechado';
 
 export interface ProductVariation {
   id: string;

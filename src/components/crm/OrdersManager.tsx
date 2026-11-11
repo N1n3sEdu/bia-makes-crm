@@ -17,11 +17,15 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 interface OrdersManagerProps {
   orders: Order[];
   onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  products?: any[];
+  channels?: any[];
 }
 
 export function OrdersManager({
   orders,
   onUpdateOrderStatus,
+  products = [],
+  channels = [],
 }: OrdersManagerProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("ALL");
@@ -435,22 +439,59 @@ export function OrdersManager({
               </div>
 
               {/* Payment & Total */}
-              <div className="pt-2 border-t border-[#E9D9CD] flex justify-between items-center">
-                <div>
-                  <span className="text-[10px] text-gray-500 block">Forma de Pagamento</span>
-                  <span className="font-semibold text-[#39313A]">{viewingOrder.paymentMethod}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-gray-500 block">Total do Pedido</span>
-                  <span className={`text-xl font-extrabold ${
-                    viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
-                      ? "line-through decoration-2 decoration-red-600 text-red-600"
-                      : "text-[#7A3F51]"
-                  }`}>
-                    {formatCurrency(viewingOrder.totalAmount)}
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const channelInfo = channels.find((c: any) => c.code === viewingOrder.channel);
+                const feePct = channelInfo ? channelInfo.feePercentage : 0;
+                const estFee = viewingOrder.totalAmount * (feePct / 100);
+                
+                let orderCmv = 0;
+                viewingOrder.items.forEach((it) => {
+                  const prod = products.find((p: any) => p.id === it.productId || p.sku === it.sku);
+                  const cost = prod && typeof prod.costPrice === "number" ? prod.costPrice : it.price * 0.38;
+                  orderCmv += cost * it.quantity;
+                });
+
+                const orderGrossMargin = viewingOrder.totalAmount - estFee - orderCmv;
+
+                return (
+                  <div className="pt-2 border-t border-[#E9D9CD] space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-[10px] text-gray-500 block">Forma de Pagamento</span>
+                        <span className="font-semibold text-[#39313A]">{viewingOrder.paymentMethod}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-gray-500 block">Total do Pedido</span>
+                        <span className={`text-xl font-extrabold ${
+                          viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
+                            ? "line-through decoration-2 decoration-red-600 text-red-600"
+                            : "text-[#7A3F51]"
+                        }`}>
+                          {formatCurrency(viewingOrder.totalAmount)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Breakdown contábil do pedido */}
+                    <div className="bg-[#FAF7F8] p-2.5 rounded-xl border border-[#E9D9CD] grid grid-cols-3 gap-2 text-center text-[10px]">
+                      <div>
+                        <span className="text-gray-500 block">CMV (Custo SKUs)</span>
+                        <span className="font-bold text-gray-700">{formatCurrency(orderCmv)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block">Comissão ({feePct}%)</span>
+                        <span className="font-bold text-rose-600">-{formatCurrency(estFee)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block">Margem de Contribuição</span>
+                        <span className={`font-bold ${orderGrossMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                          {formatCurrency(orderGrossMargin)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
             </div>
           </div>

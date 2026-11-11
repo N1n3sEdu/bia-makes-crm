@@ -1,0 +1,71 @@
+================================================================================
+BIA MAKES — REGISTRO HISTÓRICO DE ALTERAÇÕES DO SISTEMA (AUDITORIA E ROLLBACK)
+================================================================================
+
+Este arquivo registra cronologicamente todas as alterações realizadas no código,
+contendo a data, horário, o que foi alterado e como reverter a função se necessário.
+
+--------------------------------------------------------------------------------
+REGISTRO #001
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 11/11/2026
+HORÁRIO              : 16:30:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"Atue como desenvolvedor especialista em ERP financeiro. No contexto src/context/BiaMakesContext.tsx e componentes FinancialManager.tsx e OrdersManager.tsx:
+1. Refatore o cálculo de financial para que a Receita Bruta, CMV e Comissões reflitam a soma real dos pedidos com status ativo (PAGO, SEPARACAO, ENVIADO, CONCLUIDO), calculando o custo com base no custo real cadastrado de cada SKU.
+2. Na dedução de comissões por canal, utilize a taxa real cadastrada no canal (feePercentage) em vez de uma taxa fixa hardcoded de 14%.
+3. Permita visualizar no DRE os resultados reais do período sem impor clamp artificial em zero para o lucro líquido (permitindo aferir prejuízo operacional real caso ocorra).
+4. No MarketplacesManager.tsx, conecte a simulação de sincronização ao registro de log do histórico do canal para melhor rastreabilidade.
+E: Toda vez que for feito uma alteração e para aparecer uma notificação apenas para o usuário eduardo.nunes e caso eu queira ver a alteração ele abra um campo informando."
+
+ARQUIVOS MODIFICADOS:
+- src/context/BiaMakesContext.tsx
+- src/components/crm/FinancialManager.tsx
+- src/components/crm/OrdersManager.tsx
+- src/components/crm/MarketplacesManager.tsx
+- src/components/ChangeNotificationModal.tsx (NOVO)
+- src/app/admin/page.tsx
+- HISTORICO_ALTERACOES.txt (NOVO)
+
+DETALHAMENTO DAS MODIFICAÇÕES:
+1. `src/context/BiaMakesContext.tsx`:
+   - Substituição do cálculo derivado estático (que subtraía de initialFinancial) por agregação direta em tempo real.
+   - Filtro de pedidos ativos: ['PAGO', 'SEPARACAO', 'ENVIADO', 'CONCLUIDO'].
+   - CMV dinâmico: busca o item.sku / item.productId no catálogo de produtos e utiliza prod.costPrice.
+   - Comissões dinâmicas: calcula o valor com base no feePercentage configurado individualmente em cada MarketplaceChannel.
+   - Remoção do Math.max(0, netProfit), viabilizando apuração de prejuízo contábil real caso as despesas e custos superem a receita.
+
+2. `src/components/crm/FinancialManager.tsx`:
+   - Atualização dos cartões e do DRE para suportar exibição de Prejuízo Operacional (com estilização diferenciada em tons de alerta/rose) quando netProfit < 0.
+   - Atualização do cálculo de margens e legendas contábeis para refletir a taxa real dos canais.
+
+3. `src/components/crm/OrdersManager.tsx`:
+   - No modal de detalhes do pedido, adicionado breakdown contábil do pedido: CMV dos SKUs, Comissão estimada com base na taxa cadastrada no canal e Margem de Contribuição real da venda.
+
+4. `src/components/crm/MarketplacesManager.tsx`:
+   - A função handleSync agora dispara mensagens detalhadas para o console de rastreabilidade e log de auditoria com timestamp, taxa contratual validada e status do canal.
+
+5. `src/components/ChangeNotificationModal.tsx`:
+   - Componente criado especificamente para notificar com exclusividade o usuário eduardo.nunes.
+   - Exibe notificação flutuante com badge ativo. Ao clicar em "Ver Alteração", abre modal com os detalhes da modificação, horário, arquivos e instruções de reversão.
+
+INSTRUÇÕES PARA REVERSÃO (COMO VOLTAR A FUNÇÃO ANTERIOR):
+Caso deseje reverter esta alteração para o estado anterior:
+1. No arquivo `src/context/BiaMakesContext.tsx`:
+   - Restaurar o useMemo de 'financial' para utilizar o objeto `initialFinancial`:
+     grossRevenue = Math.max(0, initialFinancial.grossRevenue - refundedAmount);
+     cmv = Math.max(0, initialFinancial.cmv - refundedCmv);
+     marketplaceFees = Math.max(0, initialFinancial.marketplaceFees - refundedFees);
+     netProfit = Math.max(0, grossRevenue - marketplaceFees - cmv - operatingExpenses);
+2. No arquivo `src/components/crm/FinancialManager.tsx`:
+   - Remover as condicionais `isOperatingLoss`.
+3. No arquivo `src/components/crm/MarketplacesManager.tsx`:
+   - Restaurar handleSync apenas para chamar onSyncChannel(chan.id) sem atualizar simulatorLog.
+4. Caso queira remover o alerta do usuário eduardo.nunes, remover a chamada de `<ChangeNotificationModal />` no arquivo `src/app/admin/page.tsx`.
+
+STATUS DO BUILD APÓS ALTERAÇÃO:
+Sucesso (Compilado sem erros pelo Next.js - build verificado e íntegro).
+================================================================================

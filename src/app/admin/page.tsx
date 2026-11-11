@@ -12,6 +12,7 @@ import { FinancialManager } from "@/components/crm/FinancialManager";
 import { ImportExportManager } from "@/components/crm/ImportExportManager";
 import { UsersManager } from "@/components/crm/UsersManager";
 import { CommandMenuSpotlight } from "@/components/CommandMenuSpotlight";
+import { ChangeNotificationModal } from "@/components/ChangeNotificationModal";
 import { useBiaMakes } from "@/context/BiaMakesContext";
 import AdminLoginPage from "./login/page";
 import { UserRole } from "@/types";
@@ -222,6 +223,8 @@ export default function AdminPage() {
           <OrdersManager
             orders={orders}
             onUpdateOrderStatus={updateOrderStatus}
+            products={products}
+            channels={channels}
           />
         )}
 
@@ -262,6 +265,9 @@ export default function AdminPage() {
 
       {/* PowerToys Spotlight & Global Shortcuts Engine (Exclusivo do Painel Admin) */}
       <CommandMenuSpotlight />
+
+      {/* Notificações e Informações de Alterações (Exclusivo eduardo.nunes) */}
+      <ChangeNotificationModal />
     </div>
   );
 }

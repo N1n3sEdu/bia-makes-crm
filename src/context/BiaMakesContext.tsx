@@ -88,36 +88,54 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   const [channels, setChannels] = useState<MarketplaceChannel[]>(initialChannels);
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
 
-  // Dynamically compute financial metrics removing DEVOLUCAO and CANCELADO orders automatically
+  // Dynamically compute financial metrics directly based on active orders, real product costs and channel fees
   const financial: FinancialMetric = useMemo(() => {
+    // Active orders considering genuine completed/in-progress sales
+    const activeStatuses: OrderStatus[] = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
+    const activeOrders = orders.filter((o) => activeStatuses.includes(o.status));
     const refundedOrders = orders.filter(
       (o) => o.status === "DEVOLUCAO" || o.status === "CANCELADO"
     );
+
     const refundedAmount = refundedOrders.reduce((acc, o) => acc + o.totalAmount, 0);
     const refundedOrdersCount = refundedOrders.length;
 
-    // Calculate CMV and fees of refunded orders to deduct accurately
-    let refundedCmv = 0;
-    refundedOrders.forEach((o) => {
+    // 1. Receita Bruta real dos pedidos ativos
+    const grossRevenue = activeOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+
+    // Map channels to easily get registered real feePercentage
+    const channelFeeMap: Record<string, number> = {};
+    channels.forEach((c) => {
+      channelFeeMap[c.code] = typeof c.feePercentage === "number" ? c.feePercentage : 0;
+    });
+
+    // 2. Comissões por canal calculadas com a taxa real cadastrada de cada canal
+    let marketplaceFees = 0;
+    activeOrders.forEach((o) => {
+      const channelFeePct = channelFeeMap[o.channel] ?? 0;
+      marketplaceFees += o.totalAmount * (channelFeePct / 100);
+    });
+
+    // 3. CMV real calculado pelo custo real de cada SKU cadastrado
+    let cmv = 0;
+    activeOrders.forEach((o) => {
       o.items.forEach((item) => {
         const prod = products.find(
           (p) => p.id === item.productId || p.sku === item.sku
         );
-        const unitCost = prod ? prod.costPrice : item.price * 0.38;
-        refundedCmv += unitCost * item.quantity;
+        // Custo cadastrado real do produto ou fallback prudencial baseado no preço
+        const unitCost = prod && typeof prod.costPrice === "number" ? prod.costPrice : item.price * 0.38;
+        cmv += unitCost * item.quantity;
       });
     });
 
-    const refundedFees = refundedAmount * 0.14;
-    const grossRevenue = Math.max(0, initialFinancial.grossRevenue - refundedAmount);
-    const marketplaceFees = Math.max(0, initialFinancial.marketplaceFees - refundedFees);
-    const cmv = Math.max(0, initialFinancial.cmv - refundedCmv);
+    // Despesas operacionais do período (proporcionais ou base do negócio)
     const operatingExpenses = initialFinancial.operatingExpenses;
-    const netProfit = Math.max(
-      0,
-      grossRevenue - marketplaceFees - cmv - operatingExpenses
-    );
-    const ordersCount = Math.max(0, initialFinancial.ordersCount - refundedOrdersCount);
+
+    // 4. Lucro Líquido Real sem clamp artificial em zero (permite apuração de prejuízo operacional real caso ocorra)
+    const netProfit = grossRevenue - marketplaceFees - cmv - operatingExpenses;
+
+    const ordersCount = activeOrders.length;
     const profitMargin =
       grossRevenue > 0 ? Number(((netProfit / grossRevenue) * 100).toFixed(2)) : 0;
     const averageTicket =
@@ -135,7 +153,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       refundedAmount,
       refundedOrdersCount,
     };
-  }, [orders, products]);
+  }, [orders, products, channels]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);

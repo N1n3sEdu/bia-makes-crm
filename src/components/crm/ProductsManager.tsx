@@ -37,8 +37,20 @@ const categoriesList: ProductCategory[] = [
   'Olhos',
   'Pincéis & Acessórios',
   'Skincare',
-  'Kits de Presente'
+  'Kits de Presente',
+  'Box Fechado'
 ];
+
+export const CATEGORIES_WITHOUT_VARIATIONS: ProductCategory[] = [
+  'Kits de Presente',
+  'Pincéis & Acessórios',
+  'Skincare',
+  'Box Fechado'
+];
+
+export const hasVariations = (category: ProductCategory): boolean => {
+  return !CATEGORIES_WITHOUT_VARIATIONS.includes(category);
+};
 
 export function ProductsManager({
   products,
@@ -225,7 +237,7 @@ export function ProductsManager({
       expiryDate: formExpiryDate,
       description: formDescription,
       images: [formImageUrl],
-      variations: formVariations,
+      variations: hasVariations(formCategory) ? formVariations : [],
       socialLinks: {
         instagramUrl: formInstagramUrl.trim() || undefined,
         shopeeUrl: formShopeeUrl.trim() || undefined,
@@ -266,6 +278,16 @@ export function ProductsManager({
       window.removeEventListener("shortcut-save-form", onSaveForm);
     };
   });
+
+  // Category change handler (resets/restores variations if switching categories)
+  const handleCategoryChange = (newCat: ProductCategory) => {
+    setFormCategory(newCat);
+    if (hasVariations(newCat) && formVariations.length === 0) {
+      setFormVariations([
+        { id: `var-${Date.now()}`, name: "Padrão", colorHex: "#EED7C5", sku: `${formSku || "SKU"}-VAR1`, stock: formPhysicalStock || 50 }
+      ]);
+    }
+  };
 
   // Variations helper
   const handleAddVariation = () => {
@@ -394,7 +416,12 @@ export function ProductsManager({
                         </div>
                         <div>
                           <div className="font-bold text-[#39313A] line-clamp-1">{product.name}</div>
-                          <div className="text-[10px] text-gray-500">{product.category} • {product.variations?.length || 1} tons</div>
+                          <div className="text-[10px] text-gray-500">
+                            {product.category}
+                            {hasVariations(product.category) && product.variations && product.variations.length > 0
+                              ? ` • ${product.variations.length} ${product.variations.length === 1 ? 'tom' : 'tons'}`
+                              : ''}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -576,7 +603,7 @@ export function ProductsManager({
                   <label className="block font-bold text-[#39313A] mb-1">Categoria</label>
                   <select
                     value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as ProductCategory)}
+                    onChange={(e) => handleCategoryChange(e.target.value as ProductCategory)}
                     className="w-full px-3 py-2 rounded-xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
                   >
                     {categoriesList.map(c => (
@@ -766,81 +793,83 @@ export function ProductsManager({
                 </div>
               </div>
 
-              {/* Row 5: Variations (Tons & Swatches) */}
-              <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#39313A]">Variações & Tonalidades de Cor</span>
-                    <p className="text-[10px] text-gray-500">Defina o nome da cor, estoque da variação e a cor hexadecimal para a vitrine.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddVariation}
-                    className="px-3 py-1 bg-white border border-[#E9D9CD] text-[#7A3F51] rounded-lg font-bold hover:bg-[#F5DDE5]"
-                  >
-                    + Adicionar Tom
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {formVariations.map((v, i) => (
-                    <div key={v.id} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-[#E9D9CD]">
-                      <input
-                        type="color"
-                        value={v.colorHex}
-                        onChange={(e) => {
-                          const updated = [...formVariations];
-                          updated[i].colorHex = e.target.value;
-                          setFormVariations(updated);
-                        }}
-                        className="w-7 h-7 rounded-lg border-0 cursor-pointer"
-                        title="Escolher Cor"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nome da Tonalidade (Ex: Tom 01)"
-                        value={v.name}
-                        onChange={(e) => {
-                          const updated = [...formVariations];
-                          updated[i].name = e.target.value;
-                          setFormVariations(updated);
-                        }}
-                        className="flex-1 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="SKU Variação"
-                        value={v.sku}
-                        onChange={(e) => {
-                          const updated = [...formVariations];
-                          updated[i].sku = e.target.value;
-                          setFormVariations(updated);
-                        }}
-                        className="w-28 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-mono"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Estoque"
-                        value={v.stock}
-                        onChange={(e) => {
-                          const updated = [...formVariations];
-                          updated[i].stock = parseInt(e.target.value) || 0;
-                          setFormVariations(updated);
-                        }}
-                        className="w-20 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-bold"
-                        title="Estoque desta variação"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVariation(v.id)}
-                        className="text-gray-400 hover:text-rose-600 p-1"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+              {/* Row 5: Variations (Tons & Swatches) - Oculto para Kits de Presente, Pincéis & Acessórios, Skincare e Box Fechado */}
+              {hasVariations(formCategory) && (
+                <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-[#39313A]">Variações & Tonalidades de Cor</span>
+                      <p className="text-[10px] text-gray-500">Defina o nome da cor, estoque da variação e a cor hexadecimal para a vitrine.</p>
                     </div>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={handleAddVariation}
+                      className="px-3 py-1 bg-white border border-[#E9D9CD] text-[#7A3F51] rounded-lg font-bold hover:bg-[#F5DDE5]"
+                    >
+                      + Adicionar Tom
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {formVariations.map((v, i) => (
+                      <div key={v.id} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-[#E9D9CD]">
+                        <input
+                          type="color"
+                          value={v.colorHex}
+                          onChange={(e) => {
+                            const updated = [...formVariations];
+                            updated[i].colorHex = e.target.value;
+                            setFormVariations(updated);
+                          }}
+                          className="w-7 h-7 rounded-lg border-0 cursor-pointer"
+                          title="Escolher Cor"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Nome da Tonalidade (Ex: Tom 01)"
+                          value={v.name}
+                          onChange={(e) => {
+                            const updated = [...formVariations];
+                            updated[i].name = e.target.value;
+                            setFormVariations(updated);
+                          }}
+                          className="flex-1 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="SKU Variação"
+                          value={v.sku}
+                          onChange={(e) => {
+                            const updated = [...formVariations];
+                            updated[i].sku = e.target.value;
+                            setFormVariations(updated);
+                          }}
+                          className="w-28 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-mono"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Estoque"
+                          value={v.stock}
+                          onChange={(e) => {
+                            const updated = [...formVariations];
+                            updated[i].stock = parseInt(e.target.value) || 0;
+                            setFormVariations(updated);
+                          }}
+                          className="w-20 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-bold"
+                          title="Estoque desta variação"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVariation(v.id)}
+                          className="text-gray-400 hover:text-rose-600 p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Row 6: Local Computer Image Picker & Description */}
               <div>

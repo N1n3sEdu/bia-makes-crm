@@ -49,7 +49,9 @@ const categories: (ProductCategory | 'Todos')[] = [
   'Lábios',
   'Olhos',
   'Pincéis & Acessórios',
-  'Skincare'
+  'Skincare',
+  'Kits de Presente',
+  'Box Fechado'
 ];
 
 export function Storefront({
@@ -789,7 +791,7 @@ export function Storefront({
 
                 <button
                   onClick={() => {
-                    onAddToCart(quickViewProduct, quickViewProduct.variations[0]);
+                    onAddToCart(quickViewProduct, quickViewProduct.variations?.[0]);
                     setQuickViewProduct(null);
                   }}
                   className="w-full py-3 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2"

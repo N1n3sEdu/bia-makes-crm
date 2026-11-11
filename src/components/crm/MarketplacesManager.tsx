@@ -43,9 +43,22 @@ export function MarketplacesManager({
 
   const handleSync = (chan: MarketplaceChannel) => {
     setSyncingId(chan.id);
+    const timestamp = new Date().toLocaleTimeString('pt-BR');
+    
+    // Registra o evento de início de sincronização no log de rastreabilidade
+    setSimulatorLog((prev) => [
+      `[${timestamp}] 🔄 SINCRONIZAÇÃO INICIADA: Conectando à API oficial de "${chan.name}" (${chan.accountName}). Validando estoque e anúncios ativos...`,
+      ...prev,
+    ]);
+
     setTimeout(() => {
       onSyncChannel(chan.id);
       setSyncingId(null);
+      const finishTime = new Date().toLocaleTimeString('pt-BR');
+      setSimulatorLog((prev) => [
+        `[${finishTime}] ✅ SINCRONIZAÇÃO CONCLUÍDA: "${chan.name}" sincronizado com sucesso. Anúncios validados com taxa contratual de ${chan.feePercentage}%. Status: CONECTADO.`,
+        ...prev,
+      ]);
     }, 800);
   };
 

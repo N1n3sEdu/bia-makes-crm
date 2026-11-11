@@ -20,7 +20,8 @@ import {
   ShoppingCart,
   RotateCcw,
   CheckCheck,
-  Lock
+  Lock,
+  FileText
 } from "lucide-react";
 import { SystemUser, ProductCategory, Product, Order, MarketplaceChannel } from "@/types";
 
@@ -60,6 +61,27 @@ export function Navigation({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+
+  // Carrega IDs lidos persistidos no localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("biamakes_read_notifications");
+      if (stored) {
+        setReadNotificationIds(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Erro ao carregar notificações lidas:", e);
+    }
+  }, []);
+
+  const saveReadNotificationIds = (ids: string[]) => {
+    setReadNotificationIds(ids);
+    try {
+      localStorage.setItem("biamakes_read_notifications", JSON.stringify(ids));
+    } catch (e) {
+      console.error("Erro ao salvar notificações lidas:", e);
+    }
+  };
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -144,7 +166,7 @@ export function Navigation({
   const unreadCount = notifications.filter((n) => !readNotificationIds.includes(n.id)).length;
 
   const markAllAsRead = () => {
-    setReadNotificationIds(notifications.map((n) => n.id));
+    saveReadNotificationIds(Array.from(new Set([...readNotificationIds, ...notifications.map((n) => n.id)])));
   };
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#E9D9CD]/60 shadow-sm transition-all">
@@ -294,6 +316,22 @@ export function Navigation({
                   </button>
                 )}
 
+                {/* Ícone fixo de Registro de Alterações exclusivo para eduardo.nunes ao lado da lupa */}
+                {adminUser?.username === "eduardo.nunes" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent("biamakes-open-change-log"));
+                    }}
+                    className="relative p-2.5 rounded-full bg-[#FAF0F4] hover:bg-[#F5DDE5] text-[#7A3F51] border border-[#9C5B6F]/40 transition-all shadow-sm flex items-center justify-center cursor-pointer group"
+                    title="Ver Histórico de Alterações do Sistema & Reversões"
+                    aria-label="Histórico de alterações"
+                  >
+                    <FileText className="w-4 h-4 text-[#7A3F51] group-hover:scale-110 transition-transform" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
+                  </button>
+                )}
+
                 {/* Ícone de Notificações ao lado do Ícone de Pesquisa e de "Ver Loja Virtual" */}
                 <div className="relative" ref={notificationsRef}>
                   <button
@@ -359,7 +397,7 @@ export function Navigation({
                                 type="button"
                                 onClick={() => {
                                   if (!isRead) {
-                                    setReadNotificationIds((prev) => [...prev, notif.id]);
+                                    saveReadNotificationIds(Array.from(new Set([...readNotificationIds, notif.id])));
                                   }
                                   onNavigateTab?.(notif.targetTab);
                                   setIsNotificationsOpen(false);

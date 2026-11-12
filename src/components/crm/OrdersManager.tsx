@@ -48,6 +48,7 @@ export function OrdersManager({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [channelFilter, setChannelFilter] = useState<string>("ALL");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>("all");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedTracking, setCopiedTracking] = useState(false);
@@ -153,6 +154,54 @@ export function OrdersManager({
       return matchSearch && matchChannel && matchStatus && matchPeriod;
     });
   }, [orders, searchTerm, channelFilter, statusFilter, periodFilter]);
+
+  // Funções de Seleção Múltipla & Ações em Cadeia
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredOrders.length === 0) return;
+    const allFilteredIds = filteredOrders.map((o) => o.id);
+    const areAllSelected = allFilteredIds.every((id) => selectedOrderIds.includes(id));
+
+    if (areAllSelected) {
+      // Desmarca os pedidos atualmente filtrados
+      setSelectedOrderIds((prev) => prev.filter((id) => !allFilteredIds.includes(id)));
+    } else {
+      // Seleciona todos os pedidos atualmente filtrados
+      setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  const handleBulkStatusChange = (newStatus: OrderStatus) => {
+    if (selectedOrderIds.length === 0) return;
+
+    if (newStatus === "CANCELADO" || newStatus === "DEVOLUCAO") {
+      const confirmCancel = window.confirm(
+        `Atenção: Deseja realmente marcar ${selectedOrderIds.length} pedido(s) selecionado(s) como ${newStatus}?\n\nIsso estornará os lançamentos financeiros no DRE e devolverá automaticamente os itens ao estoque no Kardex.`
+      );
+      if (!confirmCancel) return;
+    }
+
+    selectedOrderIds.forEach((orderId) => {
+      const order = orders.find((o) => o.id === orderId);
+      if (order && order.status !== newStatus) {
+        handleStatusChange(order, newStatus);
+      }
+    });
+
+    setSelectedOrderIds([]);
+  };
+
+  const isAllSelected =
+    filteredOrders.length > 0 &&
+    filteredOrders.every((o) => selectedOrderIds.includes(o.id));
+
+  const isSomeSelected =
+    filteredOrders.some((o) => selectedOrderIds.includes(o.id)) && !isAllSelected;
 
   // WhatsApp Link Helper
   const getWhatsAppLink = (phone: string, customerName: string, orderNumber: string, status: OrderStatus) => {
@@ -419,7 +468,117 @@ export function OrdersManager({
 
       </div>
 
-      {/* 3. TABELA DE PEDIDOS COM VISUAL DE ROW-CARDS */}
+      {/* 3. BARRA DE AÇÕES EM CADEIA & SELEÇÃO MÚLTIPLA */}
+      {selectedOrderIds.length > 0 ? (
+        <div className="bg-[#FAF0F4] border-2 border-[#7A3F51]/30 rounded-2xl p-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-3 shadow-md animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="flex items-center gap-2 text-xs font-bold text-[#7A3F51] cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <div className="w-5 h-5 rounded-lg border-2 border-[#7A3F51] bg-[#7A3F51] text-white flex items-center justify-center">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              </div>
+              <span>
+                <strong>{selectedOrderIds.length}</strong> de {filteredOrders.length} {selectedOrderIds.length === 1 ? "pedido selecionado" : "pedidos selecionados"}
+              </span>
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              type="button"
+              onClick={() => setSelectedOrderIds([])}
+              className="text-xs text-gray-500 hover:text-gray-800 underline cursor-pointer font-medium"
+            >
+              Desmarcar todos
+            </button>
+          </div>
+
+          {/* Botões de Ação em Lote */}
+          <div className="flex items-center flex-wrap gap-2">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:inline mr-1">
+              Ações em Cadeia:
+            </span>
+
+            {/* Aprovar Pagamento */}
+            <button
+              type="button"
+              onClick={() => handleBulkStatusChange("PAGO")}
+              className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Aprovar pagamento de todos os pedidos selecionados"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Aprovar Pagamento</span>
+            </button>
+
+            {/* Em Separação */}
+            <button
+              type="button"
+              onClick={() => handleBulkStatusChange("SEPARACAO")}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Mover pedidos selecionados para separação"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Em Separação</span>
+            </button>
+
+            {/* Marcar Enviado */}
+            <button
+              type="button"
+              onClick={() => handleBulkStatusChange("ENVIADO")}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Marcar pedidos selecionados como enviados"
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>Marcar Enviado</span>
+            </button>
+
+            {/* Concluir */}
+            <button
+              type="button"
+              onClick={() => handleBulkStatusChange("CONCLUIDO")}
+              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Concluir pedidos selecionados"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Concluir</span>
+            </button>
+
+            {/* Cancelar em Cadeia */}
+            <button
+              type="button"
+              onClick={() => handleBulkStatusChange("CANCELADO")}
+              className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Cancelar pedidos selecionados em lote (estorna estoque e DRE)"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Cancelar em Cadeia</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              disabled={filteredOrders.length === 0}
+              className="inline-flex items-center gap-2 font-bold text-gray-600 hover:text-[#7A3F51] cursor-pointer disabled:opacity-40 transition-colors"
+              title="Marcar todos os pedidos visíveis"
+            >
+              <div className="w-4 h-4 rounded border border-gray-300 bg-white flex items-center justify-center">
+                {isSomeSelected && <div className="w-2 h-2 bg-[#7A3F51] rounded-xs" />}
+              </div>
+              <span>Selecionar Todos ({filteredOrders.length})</span>
+            </button>
+          </div>
+          <span className="text-[11px] text-gray-400">
+            Dica: Marque os balões para cancelar ou aprovar vários pedidos em cadeia
+          </span>
+        </div>
+      )}
+
+      {/* 4. TABELA DE PEDIDOS COM VISUAL DE ROW-CARDS */}
       <div className="space-y-3">
         {filteredOrders.length === 0 ? (
           /* Empty State Elegante */
@@ -447,6 +606,7 @@ export function OrdersManager({
           </div>
         ) : (
           filteredOrders.map((order) => {
+            const isSelected = selectedOrderIds.includes(order.id);
             const isRefunded = order.status === "DEVOLUCAO" || order.status === "CANCELADO";
             const firstItem = order.items[0];
             const matchedProduct = products.find((p) => p.id === firstItem?.productId || p.sku === firstItem?.sku);
@@ -462,8 +622,12 @@ export function OrdersManager({
               <div
                 key={order.id}
                 onClick={() => setViewingOrder(order)}
-                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md hover:border-[#9C5B6F] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group ${
-                  isRefunded ? "border-rose-200 bg-rose-50/20" : "border-[#E9D9CD]"
+                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group ${
+                  isSelected
+                    ? "border-[#7A3F51] bg-[#FAF0F4]/40 ring-2 ring-[#7A3F51]/30 shadow-xs"
+                    : isRefunded
+                    ? "border-rose-200 bg-rose-50/20 hover:border-rose-300"
+                    : "border-[#E9D9CD] hover:border-[#9C5B6F]"
                 }`}
                 title="Clique em qualquer parte do pedido para abrir a ficha completa"
               >
@@ -577,38 +741,60 @@ export function OrdersManager({
                   )}
                 </div>
 
-                {/* Coluna 5: Status Interativo e Detalhes */}
+                {/* Coluna 6: Balão de Seleção (Antes do Status) & Status Separado */}
                 <div 
                   onClick={(e) => e.stopPropagation()} 
-                  className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
+                  className="flex items-center gap-3 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
                 >
-                  <select
-                    value={order.status}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
+                  {/* Balão de Seleção Múltipla (Antes do Status) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
                       e.stopPropagation();
-                      handleStatusChange(order, e.target.value as OrderStatus);
+                      toggleSelectOrder(order.id);
                     }}
-                    className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
-                      isRefunded
-                        ? "bg-rose-100 text-rose-800 border-rose-300"
-                        : order.status === "CONCLUIDO"
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                        : order.status === "ENVIADO"
-                        ? "bg-blue-100 text-blue-800 border-blue-300"
-                        : order.status === "SEPARACAO"
-                        ? "bg-amber-100 text-amber-800 border-amber-300"
-                        : "bg-purple-100 text-purple-800 border-purple-300"
+                    className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
+                      isSelected
+                        ? "bg-[#7A3F51] border-[#7A3F51] text-white shadow-xs scale-105"
+                        : "bg-white border-[#E9D9CD] hover:border-[#9C5B6F] text-transparent hover:bg-[#FAF0F4]"
                     }`}
+                    title={isSelected ? "Desmarcar este pedido" : "Marcar pedido para selecionar em cadeia"}
+                    aria-label="Selecionar pedido"
                   >
-                    <option value="PENDENTE">PENDENTE</option>
-                    <option value="PAGO">PAGO</option>
-                    <option value="SEPARACAO">EM SEPARAÇÃO</option>
-                    <option value="ENVIADO">ENVIADO</option>
-                    <option value="CONCLUIDO">CONCLUÍDO</option>
-                    <option value="DEVOLUCAO">DEVOLUÇÃO</option>
-                    <option value="CANCELADO">CANCELADO</option>
-                  </select>
+                    <Check className={`w-4 h-4 stroke-[3] transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                  </button>
+
+                  {/* Informação de Status Separada */}
+                  <div className="relative inline-flex items-center">
+                    <select
+                      value={order.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleStatusChange(order, e.target.value as OrderStatus);
+                      }}
+                      className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
+                        isRefunded
+                          ? "bg-rose-100 text-rose-800 border-rose-300"
+                          : order.status === "CONCLUIDO"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : order.status === "ENVIADO"
+                          ? "bg-blue-100 text-blue-800 border-blue-300"
+                          : order.status === "SEPARACAO"
+                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                          : "bg-purple-100 text-purple-800 border-purple-300"
+                      }`}
+                      title="Alterar status deste pedido individualmente"
+                    >
+                      <option value="PENDENTE">PENDENTE</option>
+                      <option value="PAGO">PAGO</option>
+                      <option value="SEPARACAO">EM SEPARAÇÃO</option>
+                      <option value="ENVIADO">ENVIADO</option>
+                      <option value="CONCLUIDO">CONCLUÍDO</option>
+                      <option value="DEVOLUCAO">DEVOLUÇÃO</option>
+                      <option value="CANCELADO">CANCELADO</option>
+                    </select>
+                  </div>
                 </div>
 
               </div>

@@ -6,6 +6,62 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #033
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 14:15:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"Faça com que a informação de pago, concluido etc seja separdo do balão que fique antes do mesmo assim podendo selecionar mais de um produto e cancelar em cadeia ou aprovar etc"
+
+MOTIVO DO AJUSTE:
+Implementação de seleção múltipla de pedidos e execução de ações em cadeia (bulk actions)
+na Central de Pedidos (OrdersManager). A informação textual de status foi separada em um
+badge informativo, e um botão/balão de seleção (checkbox de seleção múltipla) foi posicionado
+imediatamente antes do status na coluna da direita de cada linha de pedido, permitindo marcar
+múltiplos pedidos para aprovação ou cancelamento em lote.
+
+ARQUIVOS MODIFICADOS:
+- src/components/crm/OrdersManager.tsx:
+  * Adicionado estado `selectedOrderIds` para gerenciar múltiplos pedidos selecionados simultaneamente.
+  * Adicionadas funções `toggleSelectOrder`, `toggleSelectAll` e `handleBulkStatusChange`.
+  * Inserida a Barra de Ações em Cadeia (Bulk Actions Toolbar) exibida quando 1 ou mais pedidos estão marcados,
+    com botões diretos: 'Aprovar Pagamento' (PAGO), 'Em Separação' (SEPARACAO), 'Marcar Enviado' (ENVIADO),
+    'Concluir' (CONCLUIDO) e 'Cancelar em Cadeia' (CANCELADO - com estorno automático de Kardex e DRE).
+  * Incluído seletor mestre 'Selecionar Todos' no topo da listagem de pedidos.
+  * Na coluna 6 de cada pedido, posicionado o balão/checkbox de seleção rápida ANTES do status,
+    com badge de status separado e seleção individual com stopPropagation.
+  * Realce visual em cards selecionados com anel `#7A3F51` e fundo sutil rosado `#FAF0F4`.
+
+COMO TESTAR:
+1. Acesse o CRM em /admin e vá na aba 'Pedidos & Vendas'.
+2. Observe que antes da informação de status de cada pedido existe um balão quadrado de seleção com borda suave.
+3. Marque um ou mais pedidos clicando no balão de seleção.
+4. Note que o card do pedido fica selecionado com destaque e uma barra de ações em cadeia surge no topo.
+5. Clique em qualquer ação em cadeia (ex: 'Aprovar Pagamento', 'Em Separação' ou 'Cancelar em Cadeia').
+6. Confirme que todos os pedidos selecionados têm seus status alterados em conjunto.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/components/crm/OrdersManager.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #032
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 14:15:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+ARQUIVOS ALTERADOS   : src/components/storefront/Storefront.tsx, src/components/storefront/CheckoutModal.tsx, src/app/p/[sku]/page.tsx
+RESUMO               : Regra de Frete — Não cobrar frete com CEP em branco e calcular pelo CEP direto na Sacola
+DETALHES             :
+  1. Quick View (Storefront.tsx) e página /p/[sku]/page.tsx não exibem mais valor fixo em R$ nem somam frete ao Total quando o CEP está em branco; passam a exibir "A calcular pelo CEP" (ou "FRETE GRÁTIS" se elegível).
+  2. Drawer da Sacola em Storefront.tsx ganhou bloco completo de cálculo de frete por CEP com busca automática no 8º dígito, exibição da cidade/UF e seletor de transportadora atualizando o Total em tempo real.
+  3. CheckoutModal.tsx passou a receber initialCep, initialCepInfo e initialCarrierId já preenchidos na vitrine/sacola, mantendo o frete zerado até haver cotação válida de CEP.
+REVERSÃO             : Restaurar Storefront.tsx, CheckoutModal.tsx e src/app/p/[sku]/page.tsx via git.
+
+--------------------------------------------------------------------------------
 REGISTRO #031
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

@@ -197,7 +197,20 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       if (savedChannels) setChannels(JSON.parse(savedChannels));
 
       const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-      if (savedUsers) setUsers(JSON.parse(savedUsers));
+      if (savedUsers) {
+        let parsed: SystemUser[] = JSON.parse(savedUsers);
+        const mIdx = parsed.findIndex((u) => u.username.toLowerCase() === "eduardo.nunes");
+        if (mIdx !== -1) {
+          parsed[mIdx] = {
+            ...parsed[mIdx],
+            password: "Admin@2026!",
+            isActive: true,
+            role: "ADMIN",
+            isMaster: true,
+          };
+        }
+        setUsers(parsed);
+      }
     } catch (e) {
       console.error("Erro ao sincronizar do localStorage", e);
     }
@@ -220,16 +233,26 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
       const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
       if (savedUsers) {
-        const parsedUsers: SystemUser[] = JSON.parse(savedUsers);
-        // Ensure master admin eduardo.nunes always exists
-        const hasMaster = parsedUsers.some(
+        let parsedUsers: SystemUser[] = JSON.parse(savedUsers);
+        // Garante que o Master Admin eduardo.nunes SEMPRE exista, esteja ativo e com a senha oficial
+        const masterIdx = parsedUsers.findIndex(
           (u) => u.username.toLowerCase() === "eduardo.nunes"
         );
-        if (!hasMaster) {
-          setUsers([initialUsers[0], ...parsedUsers]);
+        if (masterIdx === -1) {
+          parsedUsers = [initialUsers[0], ...parsedUsers];
         } else {
-          setUsers(parsedUsers);
+          parsedUsers[masterIdx] = {
+            ...parsedUsers[masterIdx],
+            name: "Eduardo Nunes",
+            username: "eduardo.nunes",
+            password: "Admin@2026!",
+            email: "eduardo.nunes@biamake.com.br",
+            role: "ADMIN",
+            isActive: true,
+            isMaster: true,
+          };
         }
+        setUsers(parsedUsers);
       }
 
       const savedAuth = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
@@ -324,8 +347,41 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     password: string
   ): { success: boolean; message?: string } => {
     const cleanUser = username.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    // 1. Garantia Master Admin Eduardo Nunes (Credencial Oficial Inviolável)
+    if (cleanUser === "eduardo.nunes" && cleanPass === "Admin@2026!") {
+      const masterUser: SystemUser = {
+        id: "user-master-1",
+        name: "Eduardo Nunes",
+        username: "eduardo.nunes",
+        password: "Admin@2026!",
+        email: "eduardo.nunes@biamake.com.br",
+        role: "ADMIN",
+        isActive: true,
+        isMaster: true,
+        avatar: "/logo.jpg",
+        createdAt: "2026-11-01T08:00:00Z",
+      };
+
+      // Reativa e atualiza caso estivesse inativo no estado local
+      setUsers((prev) => {
+        const idx = prev.findIndex((u) => u.username.toLowerCase() === "eduardo.nunes");
+        if (idx === -1) return [masterUser, ...prev];
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...masterUser };
+        return next;
+      });
+
+      setAdminUser(masterUser);
+      setIsAdminAuthenticated(true);
+      localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, "true");
+      localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(masterUser));
+      return { success: true };
+    }
+
     const matched = users.find(
-      (u) => u.username.toLowerCase() === cleanUser && u.password === password
+      (u) => u.username.toLowerCase() === cleanUser && u.password === cleanPass
     );
 
     if (!matched) {

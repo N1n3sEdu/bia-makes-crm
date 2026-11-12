@@ -110,16 +110,22 @@ export default function AdminLoginPage() {
                 placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold text-[#39313A] [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
+                className="w-full pl-10 pr-12 py-3 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold text-[#39313A] [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#9C5B6F] cursor-pointer transition-colors p-1"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#7A3F51] cursor-pointer transition-all rounded-xl hover:bg-black/5"
                 title={showPassword ? "Ocultar senha" : "Exibir senha"}
+                aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4 text-[#7A3F51]" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>

@@ -24,6 +24,7 @@ import {
   FileText
 } from "lucide-react";
 import { SystemUser, ProductCategory, Product, Order, MarketplaceChannel } from "@/types";
+import { STORE_CONFIG } from "@/lib/data";
 
 interface NavigationProps {
   variant?: 'storefront' | 'admin';
@@ -178,19 +179,19 @@ export function Navigation({
             <span className="font-medium">
               {variant === 'admin'
                 ? 'Ambiente Administrativo Criptografado — Sincronização Multicanal Ativa'
-                : 'Frete Grátis nas compras acima de R$ 149,00 para todo o Brasil!'}
+                : `Frete Grátis nas compras acima de R$ ${STORE_CONFIG.freeShippingThreshold},00 para todo o Brasil!`}
             </span>
           </div>
 
           <div className="flex items-center gap-4">
             <a 
-              href="https://instagram.com/biamakeoficial_" 
+              href={STORE_CONFIG.instagramUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 font-semibold text-[#9C5B6F] hover:text-[#7A3F51] transition-colors"
             >
               <Instagram className="w-3.5 h-3.5" />
-              <span>@biamakeoficial_</span>
+              <span>{STORE_CONFIG.instagramHandle}</span>
             </a>
             <span className="hidden md:inline text-[#E9D9CD]">|</span>
             <span className="hidden md:flex items-center gap-1 text-[#39313A]/70 font-medium">

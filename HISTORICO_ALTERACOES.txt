@@ -6,6 +6,48 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #012
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 11:22:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | PROMPT 1: CONTATOS OFICIAIS, ESTOQUE POR TOM E CÁLCULO DE FRETE NO CHECKOUT]"
+
+ARQUIVOS MODIFICADOS:
+- src/lib/data.ts
+- src/context/BiaMakesContext.tsx
+- src/components/Navigation.tsx
+- src/components/storefront/Storefront.tsx
+- src/app/p/[sku]/page.tsx
+- src/components/ChangeNotificationModal.tsx
+- HISTORICO_ALTERACOES.txt
+
+DETALHAMENTO DAS MODIFICAÇÕES:
+1. `src/lib/data.ts`:
+   - Criado o objeto central `STORE_CONFIG` (lendo `process.env.NEXT_PUBLIC_WHATSAPP_NUMBER` com sanitização e fallback seguro) unificando `whatsappNumber`, `whatsappDisplay`, `supportEmail`, `instagramHandle`, `instagramUrl`, `shopeeStoreUrl`, `freeShippingThreshold: 149` e `businessHours`.
+2. `src/components/Navigation.tsx`, `Storefront.tsx` e `/p/[sku]/page.tsx`:
+   - Substituídas todas as ocorrências de telefones fictícios ("5511999999999"), URLs genéricas de Shopee ("https://shopee.com.br") e textos soltos pelas constantes centralizadas de `STORE_CONFIG`.
+3. `src/context/BiaMakesContext.tsx`:
+   - Em `addToCart` e `updateCartQuantity`, a validação de estoque foi blindada para respeitar rigorosamente o estoque disponível da variação/tom selecionado (`variation.stock`), impedindo a adição de tons com saldo <= 0 ou o incremento além do estoque disponível na sacola.
+4. `src/components/storefront/Storefront.tsx`:
+   - No grid de produtos e no Quick View, o botão de compra é desabilitado dinamicamente com o texto "Tom Esgotado" caso a variação selecionada esteja sem estoque.
+   - No drawer do carrinho, os botões "+" respeitam o limite de estoque por tom e a legenda exibe a disponibilidade específica do tom.
+5. `src/app/p/[sku]/page.tsx` e Quick View de `Storefront.tsx`:
+   - Os resultados do simulador de CEP (PAC, SEDEX e Motoboy Express) foram transformados em Radio Cards interativos clicáveis.
+   - O "Total c/ Frete" agora recalcula em tempo real com a modalidade selecionada pela cliente.
+   - A mensagem enviada ao WhatsApp agora inclui a modalidade de frete escolhida e seu valor exato.
+
+INSTRUÇÕES PARA REVERSÃO:
+1. Restaurar os arquivos a partir do versionamento Git.
+
+STATUS DO BUILD APÓS ALTERAÇÃO:
+Sucesso (Compilado e verificado com código de saída 0 pelo Next.js).
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 REGISTRO #011
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 11/11/2026

@@ -17,6 +17,48 @@ export interface SystemChangeLogItem {
 // Histórico de alterações estruturado para exibição do usuário eduardo.nunes
 export const SYSTEM_CHANGE_LOGS: SystemChangeLogItem[] = [
   {
+    id: "change-2026-11-12-13",
+    timestamp: "2026-11-12T11:36:00-03:00",
+    title: "Modal de Checkout Real (PIX / Cartão), Reserva Atômica no Kardex e Gravação de Pedido no CRM",
+    description: `1. Função createStorefrontOrder no BiaMakesContext: Gera número de pedido único (#BM-XXXX), insere no topo de orders com status 'PENDENTE', atualiza o estoque reservado (reservedStock) dos produtos/variações, registra movimentação do tipo 'RESERVA' no Kardex e limpa a sacola.
+2. Eliminação Total do alert() Nativo: O botão da sacola agora abre o novo CheckoutModal completo e responsivo.
+3. Novo CheckoutModal (src/components/storefront/CheckoutModal.tsx):
+   - Etapa 1 (Identificação & Envio): Nome, WhatsApp com máscara, CEP inteligente com preenchimento de endereço e complemento.
+   - Etapa 2 (Pagamento): Aba PIX com QR Code visual estilizado, código 'PIX Copia e Cola', chave oficial da loja e feedback; e Aba Cartão com simulação limpa em até 3x sem juros.
+   - Etapa 3 (Confirmação & WhatsApp): Tela comemorativa de confirmação com código do pedido gravado no CRM e botão 'Enviar Comprovante e Acompanhar no WhatsApp Oficial' com mensagem pré-formatada.
+4. Integração na Vitrine Social: Adicionado checkout direto em /p/[sku]/page.tsx permitindo compra imediata com 1 clique.`,
+    filesModified: [
+      "src/context/BiaMakesContext.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o modal de checkout e voltar aos alertas simples:
+1. Restaurar BiaMakesContext.tsx, Storefront.tsx e /p/[sku]/page.tsx para a versão anterior a partir do Git.`
+  },
+  {
+    id: "change-2026-11-12-12",
+    timestamp: "2026-11-12T11:22:00-03:00",
+    title: "Site Comercial: Centralização STORE_CONFIG, Validação de Estoque por Tom e Frete Interativo",
+    description: `1. Centralização STORE_CONFIG: Criado objeto central em src/lib/data.ts com fallback de process.env.NEXT_PUBLIC_WHATSAPP_NUMBER para número e display de WhatsApp, email oficial, perfil do Instagram, URL exata da loja na Shopee, valor para frete grátis (R$ 149) e horário de atendimento.
+2. Substituição de Hardcodes: Eliminados telefones '5511999999999' e links genéricos em Storefront.tsx, Navigation.tsx e /p/[sku]/page.tsx.
+3. Blindagem de Estoque por Variação (Tom): No catálogo e na página do produto, o botão 'Comprar' agora desabilita com o texto 'Tom Esgotado' especificamente quando o tom selecionado tem saldo zero. No BiaMakesContext (addToCart e updateCartQuantity), a adição e o incremento no carrinho foram travados no saldo real disponível da variação escolhida.
+4. Simulador de Frete com Radio Cards Clicáveis: Em /p/[sku]/page.tsx e no Quick View, os resultados do CEP (PAC, SEDEX e Motoboy Express) agora são cards clicáveis que recalculam dinamicamente o Total com Frete e alimentam a mensagem enviada ao WhatsApp com a modalidade escolhida.`,
+    filesModified: [
+      "src/lib/data.ts",
+      "src/context/BiaMakesContext.tsx",
+      "src/components/Navigation.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter as alterações de contatos, estoque por tom e frete:
+1. Restaurar data.ts, BiaMakesContext.tsx, Navigation.tsx, Storefront.tsx e /p/[sku]/page.tsx para suas versões anteriores a partir do Git.`
+  },
+  {
     id: "change-2026-11-11-11",
     timestamp: "2026-11-11T17:44:00-03:00",
     title: "Correção e Sincronização Real de 'Vendas do Dia' com Pedidos Ativos e DRE no Financeiro",

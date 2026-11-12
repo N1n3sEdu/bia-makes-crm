@@ -30,6 +30,8 @@ import {
 import { Product, ProductCategory, ProductVariation } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { CartItem } from "@/context/BiaMakesContext";
+import { STORE_CONFIG } from "@/lib/data";
+import { CheckoutModal } from "./CheckoutModal";
 
 interface StorefrontProps {
   products: Product[];
@@ -74,6 +76,7 @@ export function Storefront({
   const [couponCode, setCouponCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
   const [couponMessage, setCouponMessage] = useState<string>('');
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // CEP Calculator state inside Quick View / Storefront
   const [cepInput, setCepInput] = useState('');
@@ -83,6 +86,8 @@ export function Storefront({
     express: number;
     city: string;
   } | null>(null);
+  const [quickViewSelectedOption, setQuickViewSelectedOption] = useState<'pac' | 'sedex' | 'express'>('pac');
+  const [quickViewVar, setQuickViewVar] = useState<ProductVariation | undefined>(undefined);
   const [copiedSku, setCopiedSku] = useState<string | null>(null);
 
   // Handle variation selection
@@ -154,9 +159,11 @@ export function Storefront({
     let text = `Olá Bia Makes! 💕 Gostaria de finalizar meu pedido:\n\n`;
     cart.forEach((item, idx) => {
       const price = item.product.promoPrice || item.product.salePrice;
-      const avail = item.product.physicalStock - item.product.reservedStock;
+      const avail = item.selectedVariation && typeof item.selectedVariation.stock === "number"
+        ? item.selectedVariation.stock
+        : Math.max(0, item.product.physicalStock - item.product.reservedStock);
       const variationText = item.selectedVariation ? ` (${item.selectedVariation.name})` : '';
-      text += `${idx + 1}. *${item.product.name}*${variationText} - ${item.quantity}x ${formatCurrency(price)} [Estoque: ${avail} un]\n`;
+      text += `${idx + 1}. *${item.product.name}*${variationText} - ${item.quantity}x ${formatCurrency(price)} [Estoque disponível: ${avail} un]\n`;
     });
     text += `\n*Subtotal:* ${formatCurrency(subtotal)}`;
     if (appliedDiscount > 0) text += `\n*Desconto:* -${formatCurrency(discountValue)} (BIAMAKE10)`;
@@ -164,7 +171,7 @@ export function Storefront({
     text += `\n*TOTAL:* ${formatCurrency(total)}\n\nPor favor, confirmem o envio e a chave PIX! ✨`;
 
     const encoded = encodeURIComponent(text);
-    window.open(`https://api.whatsapp.com/send?phone=5511999999999&text=${encoded}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${STORE_CONFIG.whatsappNumber}&text=${encoded}`, '_blank');
   };
 
   return (
@@ -208,7 +215,7 @@ export function Storefront({
                 </button>
 
                 <a 
-                  href="https://instagram.com/biamakeoficial_" 
+                  href={STORE_CONFIG.instagramUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="px-6 py-3.5 rounded-full bg-white border border-[#E9D9CD] text-[#7A3F51] font-semibold hover:bg-[#FAF7F8] hover:border-[#C69A76] transition-all flex items-center gap-2 shadow-sm text-sm"
@@ -334,6 +341,9 @@ export function Storefront({
             {filteredProducts.map((product) => {
               const selectedVar = activeVariations[product.id] || product.variations[0];
               const availableStock = product.physicalStock - product.reservedStock;
+              const isVarOutOfStock = selectedVar 
+                ? (typeof selectedVar.stock === 'number' ? selectedVar.stock <= 0 : false)
+                : availableStock <= 0;
               const hasDiscount = Boolean(product.promoPrice && product.promoPrice < product.salePrice);
               const price = product.promoPrice || product.salePrice;
               const isFreeShipping = product.freeShipping || product.shippingValue === 0;
@@ -396,7 +406,9 @@ export function Storefront({
                       <button
                         onClick={() => {
                           setQuickViewProduct(product);
+                          setQuickViewVar(activeVariations[product.id] || product.variations?.[0]);
                           setCepResult(null);
+                          setQuickViewSelectedOption('pac');
                         }}
                         className="p-2.5 bg-white/95 hover:bg-white text-[#39313A] rounded-full shadow-md transition-all"
                         title="Ver Detalhes, Simular CEP e Redes Vinculadas"
@@ -437,21 +449,30 @@ export function Storefront({
                         <div className="mt-3 pt-3 border-t border-[#E9D9CD]/50">
                           <div className="text-[11px] font-semibold text-[#39313A]/80 mb-1.5 flex justify-between">
                             <span>Tom / Variação:</span>
-                            <span className="text-[#9C5B6F] font-bold">{selectedVar?.name} ({selectedVar?.stock} un)</span>
+                            <span className={`font-bold ${selectedVar && selectedVar.stock <= 0 ? 'text-rose-600' : 'text-[#9C5B6F]'}`}>
+                              {selectedVar?.name} ({selectedVar ? (selectedVar.stock <= 0 ? 'ESGOTADO' : `${selectedVar.stock} un`) : ''})
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             {product.variations.map((v) => {
                               const isCurrent = selectedVar?.id === v.id;
+                              const isOutOfStock = v.stock <= 0;
                               return (
                                 <button
                                   key={v.id}
                                   onClick={() => handleSelectVariation(product.id, v)}
-                                  className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                                  className={`relative w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
                                     isCurrent ? 'ring-2 ring-[#9C5B6F] scale-110 border-white' : 'border-gray-200 hover:scale-105'
-                                  }`}
+                                  } ${isOutOfStock ? 'opacity-40' : ''}`}
                                   style={{ backgroundColor: v.colorHex }}
-                                  title={`${v.name} — ${v.stock} em estoque`}
-                                />
+                                  title={`${v.name} — ${isOutOfStock ? 'ESGOTADO' : `${v.stock} em estoque`}`}
+                                >
+                                  {isOutOfStock && (
+                                    <span className="absolute inset-0 flex items-center justify-center text-[9px] text-rose-800 font-extrabold leading-none">
+                                      ✕
+                                    </span>
+                                  )}
+                                </button>
                               );
                             })}
                           </div>
@@ -561,15 +582,15 @@ export function Storefront({
 
                       <button
                         onClick={() => onAddToCart(product, selectedVar)}
-                        disabled={availableStock <= 0}
+                        disabled={isVarOutOfStock}
                         className={`px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
-                          availableStock > 0
-                            ? 'bg-[#9C5B6F] hover:bg-[#7A3F51] text-white shadow-md shadow-[#9C5B6F]/20'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          !isVarOutOfStock
+                            ? 'bg-[#9C5B6F] hover:bg-[#7A3F51] text-white shadow-md shadow-[#9C5B6F]/20 cursor-pointer'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
                         }`}
                       >
                         <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>Comprar</span>
+                        <span>{isVarOutOfStock ? (selectedVar ? 'Tom Esgotado' : 'Esgotado') : 'Comprar'}</span>
                       </button>
                     </div>
 
@@ -595,12 +616,12 @@ export function Storefront({
                 Nossas Redes Sociais e Lojas Oficiais Integradas
               </h3>
               <p className="text-xs sm:text-sm text-[#39313A]/75 leading-relaxed">
-                Todos os produtos da <strong>Bia Makes</strong> possuem link direto para o Instagram (<code>@biamakeoficial_</code>), Shopee, Mercado Livre e TikTok Shop, mantendo o <strong>estoque real embutido</strong> e o <strong>cálculo transparente de frete</strong> em qualquer canal.
+                Todos os produtos da <strong>Bia Makes</strong> possuem link direto para o Instagram (<code>{STORE_CONFIG.instagramHandle}</code>), Shopee, Mercado Livre e TikTok Shop, mantendo o <strong>estoque real embutido</strong> e o <strong>cálculo transparente de frete</strong> em qualquer canal.
               </p>
             </div>
             <div className="lg:col-span-4 flex flex-wrap gap-2.5 justify-start lg:justify-end">
               <a
-                href="https://instagram.com/biamakeoficial_"
+                href={STORE_CONFIG.instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 rounded-2xl bg-[#9C5B6F] text-white text-xs font-bold flex items-center gap-2 shadow-sm hover:bg-[#7A3F51] transition-all"
@@ -609,7 +630,7 @@ export function Storefront({
                 <span>Instagram Oficial</span>
               </a>
               <a
-                href="https://shopee.com.br"
+                href={STORE_CONFIG.shopeeStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 rounded-2xl bg-white border border-[#E9D9CD] text-[#39313A] text-xs font-bold flex items-center gap-2 hover:border-[#9C5B6F] transition-all"
@@ -674,7 +695,7 @@ export function Storefront({
                     {quickViewProduct.category}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    {quickViewProduct.physicalStock - quickViewProduct.reservedStock} un. em estoque
+                    {quickViewProduct.physicalStock - quickViewProduct.reservedStock} un. estoque geral
                   </span>
                 </div>
 
@@ -686,28 +707,67 @@ export function Storefront({
                   {quickViewProduct.description}
                 </p>
 
+                {/* Seleção de Tom / Variação no Quick View */}
+                {quickViewProduct.variations && quickViewProduct.variations.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#39313A]">Tom / Variação:</span>
+                      <span className={`font-bold ${quickViewVar && quickViewVar.stock <= 0 ? 'text-rose-600' : 'text-[#9C5B6F]'}`}>
+                        {quickViewVar?.name} ({quickViewVar ? (quickViewVar.stock <= 0 ? 'ESGOTADO' : `${quickViewVar.stock} un`) : ''})
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {quickViewProduct.variations.map((v) => {
+                        const isCurrent = quickViewVar?.id === v.id;
+                        const isOutOfStock = v.stock <= 0;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setQuickViewVar(v)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                              isCurrent
+                                ? 'bg-[#9C5B6F] text-white border-[#9C5B6F] shadow-sm'
+                                : 'bg-white text-[#39313A] border-[#E9D9CD] hover:border-[#9C5B6F]'
+                            } ${isOutOfStock ? 'opacity-50' : ''}`}
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full border border-white/60 shrink-0"
+                              style={{ backgroundColor: v.colorHex }}
+                            />
+                            <span>{v.name}</span>
+                            {isOutOfStock && <span className="text-[9px] text-rose-300 font-extrabold">(0)</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-baseline justify-between bg-[#FAF0F4] p-3 rounded-2xl border border-[#E9D9CD]">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-[#7A3F51] block">Valor Promocional</span>
+                    <span className="text-[10px] uppercase font-bold text-[#7A3F51] block">Valor Unitário</span>
                     <span className="text-2xl font-extrabold text-[#7A3F51]">
                       {formatCurrency(quickViewProduct.promoPrice || quickViewProduct.salePrice)}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-[#C69A76] block">Frete Base Embutido</span>
+                    <span className="text-[10px] uppercase font-bold text-[#C69A76] block">Frete Selecionado</span>
                     <span className="text-xs font-bold text-emerald-700">
-                      {quickViewProduct.freeShipping || quickViewProduct.shippingValue === 0
-                        ? 'FRETE GRÁTIS'
-                        : formatCurrency(quickViewProduct.shippingValue)}
+                      {cepResult
+                        ? (cepResult[quickViewSelectedOption] === 0 ? 'FRETE GRÁTIS' : formatCurrency(cepResult[quickViewSelectedOption]))
+                        : (quickViewProduct.freeShipping || quickViewProduct.shippingValue === 0
+                            ? 'FRETE GRÁTIS'
+                            : formatCurrency(quickViewProduct.shippingValue))}
                     </span>
                   </div>
                 </div>
 
-                {/* Embedded CEP Shipping Simulator */}
+                {/* Embedded CEP Shipping Simulator com Opções Clicáveis */}
                 <div className="p-3.5 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD] space-y-2.5">
                   <label className="block text-[11px] font-bold text-[#39313A] flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-[#9C5B6F]" />
-                    <span>Calcular Frete e Prazo no Produto (CEP):</span>
+                    <span>Calcular Frete e Escolher Modalidade de Envio:</span>
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -721,27 +781,91 @@ export function Storefront({
                     <button
                       type="button"
                       onClick={() => handleCalculateCep(quickViewProduct)}
-                      className="px-3.5 py-1.5 bg-[#9C5B6F] text-white text-xs font-bold rounded-xl hover:bg-[#7A3F51]"
+                      className="px-3.5 py-1.5 bg-[#9C5B6F] text-white text-xs font-bold rounded-xl hover:bg-[#7A3F51] cursor-pointer"
                     >
                       Calcular
                     </button>
                   </div>
                   {cepResult && (
-                    <div className="text-[11px] space-y-1 pt-1 border-t border-[#E9D9CD]/60 text-[#39313A]">
-                      <div className="font-semibold text-[#7A3F51]">{cepResult.city}</div>
-                      <div className="flex justify-between">
-                        <span>• Correios PAC (Econômico):</span>
-                        <strong className="text-emerald-700">
-                          {cepResult.pac === 0 ? 'GRÁTIS' : formatCurrency(cepResult.pac)}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>• SEDEX Rápido (1-2 dias):</span>
-                        <strong>{formatCurrency(cepResult.sedex)}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>• Motoboy / Express Bia Makes:</span>
-                        <strong>{formatCurrency(cepResult.express)}</strong>
+                    <div className="space-y-2 pt-2 border-t border-[#E9D9CD]/70 text-[#39313A]">
+                      <div className="font-semibold text-xs text-[#7A3F51]">{cepResult.city}</div>
+                      
+                      {/* Radio Cards Clicáveis de Modalidades de Frete */}
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {/* PAC */}
+                        <div
+                          onClick={() => setQuickViewSelectedOption('pac')}
+                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                            quickViewSelectedOption === 'pac'
+                              ? 'bg-[#FAF0F4] border-[#9C5B6F] ring-1 ring-[#9C5B6F]'
+                              : 'bg-white border-[#E9D9CD] hover:border-[#9C5B6F]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                              quickViewSelectedOption === 'pac' ? 'border-[#9C5B6F]' : 'border-gray-300'
+                            }`}>
+                              {quickViewSelectedOption === 'pac' && <span className="w-1.5 h-1.5 rounded-full bg-[#9C5B6F]" />}
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-[#39313A]">Correios PAC (Econômico)</div>
+                              <div className="text-[10px] text-gray-500">3 a 6 dias úteis</div>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-emerald-700">
+                            {cepResult.pac === 0 ? 'GRÁTIS' : formatCurrency(cepResult.pac)}
+                          </span>
+                        </div>
+
+                        {/* SEDEX */}
+                        <div
+                          onClick={() => setQuickViewSelectedOption('sedex')}
+                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                            quickViewSelectedOption === 'sedex'
+                              ? 'bg-[#FAF0F4] border-[#9C5B6F] ring-1 ring-[#9C5B6F]'
+                              : 'bg-white border-[#E9D9CD] hover:border-[#9C5B6F]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                              quickViewSelectedOption === 'sedex' ? 'border-[#9C5B6F]' : 'border-gray-300'
+                            }`}>
+                              {quickViewSelectedOption === 'sedex' && <span className="w-1.5 h-1.5 rounded-full bg-[#9C5B6F]" />}
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-[#39313A]">SEDEX Expresso</div>
+                              <div className="text-[10px] text-gray-500">1 a 2 dias úteis</div>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-[#7A3F51]">
+                            {formatCurrency(cepResult.sedex)}
+                          </span>
+                        </div>
+
+                        {/* Express */}
+                        <div
+                          onClick={() => setQuickViewSelectedOption('express')}
+                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                            quickViewSelectedOption === 'express'
+                              ? 'bg-[#FAF0F4] border-[#9C5B6F] ring-1 ring-[#9C5B6F]'
+                              : 'bg-white border-[#E9D9CD] hover:border-[#9C5B6F]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                              quickViewSelectedOption === 'express' ? 'border-[#9C5B6F]' : 'border-gray-300'
+                            }`}>
+                              {quickViewSelectedOption === 'express' && <span className="w-1.5 h-1.5 rounded-full bg-[#9C5B6F]" />}
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-[#39313A]">Motoboy / Express Bia Makes</div>
+                              <div className="text-[10px] text-gray-500">Receba Hoje / 24h</div>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-[#7A3F51]">
+                            {formatCurrency(cepResult.express)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -789,16 +913,30 @@ export function Storefront({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    onAddToCart(quickViewProduct, quickViewProduct.variations?.[0]);
-                    setQuickViewProduct(null);
-                  }}
-                  className="w-full py-3 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Adicionar à Minha Sacola</span>
-                </button>
+                {(() => {
+                  const activeVar = quickViewVar || quickViewProduct.variations?.[0];
+                  const isQuickOutOfStock = activeVar
+                    ? (typeof activeVar.stock === 'number' ? activeVar.stock <= 0 : false)
+                    : (quickViewProduct.physicalStock - quickViewProduct.reservedStock <= 0);
+
+                  return (
+                    <button
+                      onClick={() => {
+                        onAddToCart(quickViewProduct, activeVar);
+                        setQuickViewProduct(null);
+                      }}
+                      disabled={isQuickOutOfStock}
+                      className={`w-full py-3 rounded-full font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+                        !isQuickOutOfStock
+                          ? 'bg-[#9C5B6F] hover:bg-[#7A3F51] text-white cursor-pointer'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
+                      }`}
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>{isQuickOutOfStock ? (activeVar ? 'Tom Esgotado' : 'Produto Esgotado') : 'Adicionar à Minha Sacola'}</span>
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -840,7 +978,11 @@ export function Storefront({
               ) : (
                 cart.map((item, idx) => {
                   const price = item.product.promoPrice || item.product.salePrice;
-                  const avail = item.product.physicalStock - item.product.reservedStock;
+                  const itemAvailStock = item.selectedVariation && typeof item.selectedVariation.stock === "number"
+                    ? item.selectedVariation.stock
+                    : Math.max(0, item.product.physicalStock - item.product.reservedStock);
+                  const isMaxStockReached = item.quantity >= itemAvailStock;
+
                   return (
                     <div 
                       key={`${item.product.id}-${item.selectedVariation?.id || idx}`}
@@ -872,24 +1014,30 @@ export function Storefront({
                           <span className="text-xs font-extrabold text-[#7A3F51]">
                             {formatCurrency(price)}
                           </span>
-                          <span className="text-[9px] text-emerald-700 font-semibold">
-                            ({avail} disp.)
+                          <span className={`text-[9px] font-semibold ${itemAvailStock <= 2 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                            ({itemAvailStock} {item.selectedVariation ? 'no tom' : 'disp.'})
                           </span>
                         </div>
                       </div>
 
-                      {/* Quantity Controls */}
+                      {/* Quantity Controls com trava por tom */}
                       <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-full border border-[#E9D9CD]">
                         <button 
                           onClick={() => onUpdateCartQuantity(idx, item.quantity - 1)}
-                          className="text-gray-500 hover:text-gray-800"
+                          className="text-gray-500 hover:text-gray-800 cursor-pointer"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
                         <button 
                           onClick={() => onUpdateCartQuantity(idx, item.quantity + 1)}
-                          className="text-gray-500 hover:text-gray-800"
+                          disabled={isMaxStockReached}
+                          className={`p-0.5 ${
+                            isMaxStockReached 
+                              ? 'text-gray-300 cursor-not-allowed' 
+                              : 'text-gray-500 hover:text-gray-800 cursor-pointer'
+                          }`}
+                          title={isMaxStockReached ? `Limite de estoque atingido (${itemAvailStock} un)` : 'Adicionar mais 1'}
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -897,7 +1045,7 @@ export function Storefront({
 
                       <button 
                         onClick={() => onRemoveFromCart(idx)}
-                        className="text-gray-400 hover:text-rose-600 p-1"
+                        className="text-gray-400 hover:text-rose-600 p-1 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -963,19 +1111,19 @@ export function Storefront({
                 {/* Buttons */}
                 <div className="space-y-2">
                   <button
-                    onClick={handleWhatsAppCheckout}
-                    className="w-full py-3 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2"
+                    onClick={() => setIsCheckoutOpen(true)}
+                    className="w-full py-3 rounded-full bg-gradient-to-r from-[#9C5B6F] to-[#7A3F51] hover:opacity-95 text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Finalizar via WhatsApp Oficial</span>
+                    <Check className="w-4 h-4" />
+                    <span>Finalizar Compra Segura (PIX ou Cartão)</span>
                   </button>
 
                   <button
-                    onClick={() => alert(`Pedido de ${formatCurrency(total)} pronto para pagamento PIX ou Cartão!`)}
-                    className="w-full py-2.5 rounded-full bg-gradient-to-r from-[#9C5B6F] to-[#7A3F51] hover:opacity-95 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-2"
+                    onClick={handleWhatsAppCheckout}
+                    className="w-full py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>Pagamento Seguro / PIX</span>
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Comprar Direto no WhatsApp Oficial</span>
                   </button>
                 </div>
 
@@ -1001,7 +1149,7 @@ export function Storefront({
                 Cosméticos femininos criados para exaltar a autoestima, confiança e o charme de cada mulher.
               </p>
               <div className="text-xs font-bold text-[#9C5B6F]">
-                Instagram: @biamakeoficial_
+                Instagram: {STORE_CONFIG.instagramHandle}
               </div>
             </div>
 
@@ -1018,10 +1166,9 @@ export function Storefront({
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#C69A76] mb-3">Atendimento</h4>
               <ul className="space-y-2 text-xs text-[#39313A]/80 font-medium">
-                <li>Segunda a Sexta: 09h às 18h</li>
-                <li>Sábado: 09h às 13h</li>
-                <li>WhatsApp: (11) 99999-9999</li>
-                <li>E-mail: contato@biamake.com.br</li>
+                <li>{STORE_CONFIG.businessHours}</li>
+                <li>WhatsApp: {STORE_CONFIG.whatsappDisplay}</li>
+                <li>E-mail: {STORE_CONFIG.supportEmail}</li>
               </ul>
             </div>
 
@@ -1050,6 +1197,17 @@ export function Storefront({
           </div>
         </div>
       </footer>
+
+      {/* MODAL DE CHECKOUT TRANSPARENTE (PIX / CARTÃO) & REGISTRO NO CRM */}
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        items={cart}
+        subtotal={subtotal}
+        shippingAmount={shipping}
+        discountAmount={discountValue}
+        total={total}
+      />
 
     </div>
   );

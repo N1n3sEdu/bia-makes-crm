@@ -718,3 +718,34 @@ export const initialUsers: SystemUser[] = [
 
 export const currentUser: SystemUser = initialUsers[0];
 
+// ============================================================================
+// CONFIGURAÇÕES GLOBAIS DA LOJA (BIA MAKES STORE CONFIG)
+// Centraliza contatos, links oficiais, canais e regras comerciais do e-commerce
+// ============================================================================
+export interface StoreConfig {
+  whatsappNumber: string;
+  whatsappDisplay: string;
+  supportEmail: string;
+  instagramHandle: string;
+  instagramUrl: string;
+  shopeeStoreUrl: string;
+  freeShippingThreshold: number;
+  businessHours: string;
+}
+
+const rawWhatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511987654321";
+const cleanWhatsapp = rawWhatsapp.replace(/\D/g, "");
+
+export const STORE_CONFIG: StoreConfig = {
+  whatsappNumber: cleanWhatsapp,
+  whatsappDisplay: cleanWhatsapp.length >= 11
+    ? `(${cleanWhatsapp.slice(-11, -9)}) ${cleanWhatsapp.slice(-9, -4)}-${cleanWhatsapp.slice(-4)}`
+    : "(11) 98765-4321",
+  supportEmail: "contato@biamake.com.br",
+  instagramHandle: "@biamakeoficial_",
+  instagramUrl: "https://instagram.com/biamakeoficial_",
+  shopeeStoreUrl: "https://shopee.com.br/biamakes.beauty",
+  freeShippingThreshold: 149,
+  businessHours: "Segunda a Sexta: 09h às 18h | Sábado: 09h às 13h",
+};
+

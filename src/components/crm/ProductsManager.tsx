@@ -72,7 +72,7 @@ export function ProductsManager({
   const [formBrand, setFormBrand] = useState("Bia Makes");
   const [formCostPrice, setFormCostPrice] = useState<number>(25.00);
   const [formSalePrice, setFormSalePrice] = useState<number>(69.90);
-  const [formPromoPrice, setFormPromoPrice] = useState<number | undefined>(undefined);
+  const [formDiscountPercent, setFormDiscountPercent] = useState<number | undefined>(undefined);
   const [formPhysicalStock, setFormPhysicalStock] = useState<number>(50);
   const [formMinStock, setFormMinStock] = useState<number>(15);
   const [formShippingValue, setFormShippingValue] = useState<number>(12.90);
@@ -160,7 +160,7 @@ export function ProductsManager({
     setFormBrand("Bia Makes");
     setFormCostPrice(25.00);
     setFormSalePrice(69.90);
-    setFormPromoPrice(undefined);
+    setFormDiscountPercent(undefined);
     setFormPhysicalStock(50);
     setFormMinStock(15);
     setFormShippingValue(12.90);
@@ -190,7 +190,12 @@ export function ProductsManager({
     setFormBrand(p.brand);
     setFormCostPrice(p.costPrice);
     setFormSalePrice(p.salePrice);
-    setFormPromoPrice(p.promoPrice);
+    if (p.promoPrice && p.promoPrice < p.salePrice && p.salePrice > 0) {
+      const pct = Math.round(((p.salePrice - p.promoPrice) / p.salePrice) * 100);
+      setFormDiscountPercent(pct);
+    } else {
+      setFormDiscountPercent(undefined);
+    }
     setFormPhysicalStock(p.physicalStock);
     setFormMinStock(p.minStock);
     setFormShippingValue(p.shippingValue ?? 12.90);
@@ -218,6 +223,11 @@ export function ProductsManager({
       return;
     }
 
+    const calculatedPromoPrice =
+      formDiscountPercent && formDiscountPercent > 0 && formDiscountPercent < 100
+        ? Number((formSalePrice * (1 - formDiscountPercent / 100)).toFixed(2))
+        : undefined;
+
     const productPayload: Product = {
       id: editingProduct ? editingProduct.id : `prod-${Date.now()}`,
       name: formName,
@@ -227,7 +237,7 @@ export function ProductsManager({
       brand: formBrand,
       costPrice: Number(formCostPrice),
       salePrice: Number(formSalePrice),
-      promoPrice: formPromoPrice ? Number(formPromoPrice) : undefined,
+      promoPrice: calculatedPromoPrice,
       physicalStock: Number(formPhysicalStock),
       reservedStock: editingProduct ? editingProduct.reservedStock : 0,
       minStock: Number(formMinStock),
@@ -318,8 +328,17 @@ export function ProductsManager({
     return matchCat && matchSearch;
   });
 
-  // Calculate live margin
-  const liveMargin = formSalePrice > 0 ? (((formSalePrice - formCostPrice) / formSalePrice) * 100).toFixed(1) : "0";
+  // Calculate live promo price and live margin
+  const livePromoPrice =
+    formDiscountPercent && formDiscountPercent > 0 && formDiscountPercent < 100
+      ? Number((formSalePrice * (1 - formDiscountPercent / 100)).toFixed(2))
+      : undefined;
+
+  const effectiveSellingPrice = livePromoPrice ?? formSalePrice;
+  const liveMargin =
+    effectiveSellingPrice > 0
+      ? (((effectiveSellingPrice - formCostPrice) / effectiveSellingPrice) * 100).toFixed(1)
+      : "0";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -636,15 +655,35 @@ export function ProductsManager({
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-[#39313A] mb-1">Promoção (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Opcional"
-                    value={formPromoPrice || ""}
-                    onChange={(e) => setFormPromoPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                  />
+                  <label className="block font-bold text-[#39313A] mb-1">Promoção (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="99"
+                      placeholder="Ex: 15"
+                      value={formDiscountPercent !== undefined ? formDiscountPercent : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          setFormDiscountPercent(undefined);
+                        } else {
+                          const num = Math.min(99, Math.max(0, parseInt(val, 10) || 0));
+                          setFormDiscountPercent(num);
+                        }
+                      }}
+                      className="w-full px-3 py-2 pr-7 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  {livePromoPrice !== undefined && (
+                    <div className="mt-1 text-[10px] font-bold text-emerald-700 truncate">
+                      Valor Final: {formatCurrency(livePromoPrice)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block font-bold text-[#7A3F51] mb-1 flex items-center gap-1">

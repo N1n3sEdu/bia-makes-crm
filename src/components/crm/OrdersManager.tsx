@@ -203,6 +203,28 @@ export function OrdersManager({
   const isSomeSelected =
     filteredOrders.some((o) => selectedOrderIds.includes(o.id)) && !isAllSelected;
 
+  // Helper de texto de status fora do balão
+  const renderOrderStatusText = (status: OrderStatus) => {
+    switch (status) {
+      case "PAGO":
+        return <span className="text-xs font-black text-purple-700 uppercase tracking-wide">PAGO</span>;
+      case "CONCLUIDO":
+        return <span className="text-xs font-black text-emerald-700 uppercase tracking-wide">CONCLUÍDO</span>;
+      case "ENVIADO":
+        return <span className="text-xs font-black text-blue-700 uppercase tracking-wide">ENVIADO</span>;
+      case "SEPARACAO":
+        return <span className="text-xs font-black text-amber-700 uppercase tracking-wide">EM SEPARAÇÃO</span>;
+      case "PENDENTE":
+        return <span className="text-xs font-black text-gray-600 uppercase tracking-wide">PENDENTE</span>;
+      case "DEVOLUCAO":
+        return <span className="text-xs font-black text-rose-700 uppercase tracking-wide">DEVOLUÇÃO</span>;
+      case "CANCELADO":
+        return <span className="text-xs font-black text-rose-700 uppercase tracking-wide">CANCELADO</span>;
+      default:
+        return <span className="text-xs font-black text-gray-700 uppercase tracking-wide">{status}</span>;
+    }
+  };
+
   // WhatsApp Link Helper
   const getWhatsAppLink = (phone: string, customerName: string, orderNumber: string, status: OrderStatus) => {
     const cleanPhone = phone.replace(/\D/g, "");
@@ -741,60 +763,33 @@ export function OrdersManager({
                   )}
                 </div>
 
-                {/* Coluna 6: Balão de Seleção (Antes do Status) & Status Separado */}
+                {/* Coluna 6: Status fora do balão (à esquerda) & Balão de Seleção (à direita) */}
                 <div 
                   onClick={(e) => e.stopPropagation()} 
-                  className="flex items-center gap-3 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
+                  className="flex items-center gap-3 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50 shrink-0"
                 >
-                  {/* Balão de Seleção Múltipla (Antes do Status) */}
+                  {/* Informação do Status Fora do Balão (à Esquerda) */}
+                  <div className="text-right">
+                    {renderOrderStatusText(order.status)}
+                  </div>
+
+                  {/* Balão de Seleção Múltipla */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSelectOrder(order.id);
                     }}
-                    className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
+                    className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ${
                       isSelected
                         ? "bg-[#7A3F51] border-[#7A3F51] text-white shadow-xs scale-105"
                         : "bg-white border-[#E9D9CD] hover:border-[#9C5B6F] text-transparent hover:bg-[#FAF0F4]"
                     }`}
-                    title={isSelected ? "Desmarcar este pedido" : "Marcar pedido para selecionar em cadeia"}
+                    title={isSelected ? "Desmarcar este pedido" : "Marcar pedido para ação em cadeia"}
                     aria-label="Selecionar pedido"
                   >
                     <Check className={`w-4 h-4 stroke-[3] transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} />
                   </button>
-
-                  {/* Informação de Status Separada */}
-                  <div className="relative inline-flex items-center">
-                    <select
-                      value={order.status}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        handleStatusChange(order, e.target.value as OrderStatus);
-                      }}
-                      className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
-                        isRefunded
-                          ? "bg-rose-100 text-rose-800 border-rose-300"
-                          : order.status === "CONCLUIDO"
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                          : order.status === "ENVIADO"
-                          ? "bg-blue-100 text-blue-800 border-blue-300"
-                          : order.status === "SEPARACAO"
-                          ? "bg-amber-100 text-amber-800 border-amber-300"
-                          : "bg-purple-100 text-purple-800 border-purple-300"
-                      }`}
-                      title="Alterar status deste pedido individualmente"
-                    >
-                      <option value="PENDENTE">PENDENTE</option>
-                      <option value="PAGO">PAGO</option>
-                      <option value="SEPARACAO">EM SEPARAÇÃO</option>
-                      <option value="ENVIADO">ENVIADO</option>
-                      <option value="CONCLUIDO">CONCLUÍDO</option>
-                      <option value="DEVOLUCAO">DEVOLUÇÃO</option>
-                      <option value="CANCELADO">CANCELADO</option>
-                    </select>
-                  </div>
                 </div>
 
               </div>

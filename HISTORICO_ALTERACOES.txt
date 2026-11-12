@@ -6,6 +6,112 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #036
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 14:46:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"reverta essa ultima alteração, e para colocar a caixa para marcar e selecionar o status de fora do balão onde esta marcado na imagem"
+
+MOTIVO DO AJUSTE:
+Reversão do formato anterior e reposicionamento definitivo da caixa de seleção de pedidos:
+1. A caixa para marcar pedidos (checkbox) foi movida para FORA do balão/card do pedido,
+   posicionada na EXTREMA ESQUERDA da linha (exatamente alinhada abaixo do 'Selecionar Todos'
+   onde foi demarcado com o retângulo vermelho pelo usuário).
+2. O seletor de status com o balão arredondado colorido original (`[ PAGO v ]`) foi restaurado
+   na coluna da direita de cada pedido, permitindo a seleção rápida individual com um clique
+   e eliminando qualquer elemento solto indesejado.
+
+ARQUIVOS MODIFICADOS:
+- src/components/crm/OrdersManager.tsx:
+  * Inserido o botão/checkbox de marcação na extrema esquerda, antes do card do pedido.
+  * Alinhado com o checkbox 'Selecionar Todos' do cabeçalho.
+  * Restaurado o `<select>` de status colorido no final da linha do pedido.
+
+COMO TESTAR:
+1. Acesse o CRM em /admin e vá na aba 'Pedidos & Vendas'.
+2. Observe a caixa quadrada de seleção posicionada à esquerda de cada card de pedido.
+3. Clique na caixa para marcar ou desmarcar o pedido para ações em cadeia.
+4. Na extremidade direita do card do pedido, observe o balão original de status com dropdown.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/components/crm/OrdersManager.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #035
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 14:40:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"Crie uma tela de carregamento para quando o site estiver em manutenção coloque ele no mesmo tema que o site comercial e admin, coloque a logo centralizada e uma barra de carregamento informando que jaja estara de volta, toda vez que ficar com o site fazendo alguma atualização ou fora e para aparecer essa tela de voltamos já"
+
+MOTIVO DO AJUSTE:
+Criação e padronização da tela oficial de carregamento, manutenção e recuperação de conexão
+da Bia Makes ("Voltamos Já!"). A tela segue rigorosamente a identidade visual e a paleta de luxo
+do site comercial e do CRM (tons de rosé, off-white, blush, marsala e dourado), apresentando
+a logomarca centralizada com aura de brilho e anel rosé gold, além de uma barra de carregamento
+animada em degradê com efeito shimmer líquido e mensagens dinâmicas de atualização.
+Também foram implementados acionamento automático por queda de conexão (offline), error boundaries
+para atualizações técnicas (error.tsx e global-error.tsx), tela de carregamento de rotas (loading.tsx),
+rota dedicada (/maintenance) e controle com 1 clique diretamente no CRM Admin (Navigation e Dashboard)
+com sincronização em tempo real via Netlify DB e localStorage.
+
+ARQUIVOS CRIADOS:
+- src/components/MaintenanceLoadingScreen.tsx:
+  * Componente oficial da tela de carregamento e manutenção ("Voltamos Já!").
+  * Logo centralizada com efeito de pulso luminoso e moldura arredondada.
+  * Barra de progresso animada com preenchimento contínuo, shimmer metálico e mensagens rotativas.
+  * Botão interativo para verificação de retorno do site.
+  * Canais de atendimento direto (WhatsApp Oficial e Instagram @biamakeoficial_).
+  * Painel de identificação e desbloqueio para administradores e equipe.
+- src/app/maintenance/page.tsx:
+  * Rota pública dedicada /maintenance para acesso direto ou inspeção da tela.
+- src/app/loading.tsx:
+  * Tela de carregamento nativa do Next.js utilizando o tema oficial da Bia Makes.
+- src/app/error.tsx:
+  * Captura de erros de runtime/deploy durante atualizações, exibindo o "Voltamos Já!".
+- src/app/global-error.tsx:
+  * Tratamento global de erros em nível de HTML/Layout raiz.
+
+ARQUIVOS MODIFICADOS:
+- src/app/globals.css:
+  * Adicionadas animações @keyframes loadingSlide, pulseGlow e gradientMove.
+- src/app/api/store-state/route.ts:
+  * Adicionado suporte aos campos maintenanceMode e maintenanceMessage na sincronização de estado.
+- src/context/BiaMakesContext.tsx:
+  * Adicionados estados isMaintenanceMode, maintenanceMessage, setMaintenanceMode e isSystemOffline.
+  * Sincronização automática entre abas via BroadcastChannel, localStorage e API /api/store-state.
+  * Escuta nativa aos eventos de rede 'online' e 'offline' do navegador.
+- src/app/page.tsx e src/app/p/[sku]/page.tsx:
+  * Renderização imediata da tela de manutenção para clientes quando ativa ou quando houver queda de rede.
+  * Prévia especial e banner de aviso com atalho de desativação para administradores autenticados.
+- src/components/Navigation.tsx:
+  * Adicionado botão de status da loja virtual (Loja Online / Loja em Manutenção) no header admin.
+  * Criada modal de gerenciamento do modo manutenção com suporte a mensagem personalizada e prévia.
+- src/components/crm/CrmDashboard.tsx:
+  * Adicionado banner de alerta e ação rápida no topo do Cockpit administrativo do CRM.
+
+COMO TESTAR:
+1. Acesse a rota /maintenance no navegador para visualizar a tela "Voltamos Já!" em funcionamento pleno.
+2. Acesse /admin, observe no header o botão "Loja Online". Clique nele para abrir a modal de controle.
+3. Ative o "Modo Manutenção" (opcionalmente digite uma mensagem personalizada).
+4. Abra uma nova aba ou janela anônima e acesse a home /: note que a tela de "Voltamos Já!" é exibida com a logo centralizada, barra de carregamento e links de atendimento.
+5. No painel do admin, clique em "Reabrir Loja Oficial": a loja volta ao ar instantaneamente em todas as abas.
+6. Desconecte a rede temporariamente: a tela de "Conexão Interrompida" é disparada de forma elegante e automática.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/app/page.tsx src/components/Navigation.tsx src/context/BiaMakesContext.tsx src/components/crm/CrmDashboard.tsx src/app/api/store-state/route.ts src/app/globals.css
+2. Remover os arquivos criados em src/components/MaintenanceLoadingScreen.tsx, src/app/maintenance, src/app/loading.tsx, src/app/error.tsx e src/app/global-error.tsx.
+3. Executar npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #034
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

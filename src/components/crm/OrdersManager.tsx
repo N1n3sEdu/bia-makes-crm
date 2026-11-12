@@ -203,28 +203,6 @@ export function OrdersManager({
   const isSomeSelected =
     filteredOrders.some((o) => selectedOrderIds.includes(o.id)) && !isAllSelected;
 
-  // Helper de texto de status fora do balão
-  const renderOrderStatusText = (status: OrderStatus) => {
-    switch (status) {
-      case "PAGO":
-        return <span className="text-xs font-black text-purple-700 uppercase tracking-wide">PAGO</span>;
-      case "CONCLUIDO":
-        return <span className="text-xs font-black text-emerald-700 uppercase tracking-wide">CONCLUÍDO</span>;
-      case "ENVIADO":
-        return <span className="text-xs font-black text-blue-700 uppercase tracking-wide">ENVIADO</span>;
-      case "SEPARACAO":
-        return <span className="text-xs font-black text-amber-700 uppercase tracking-wide">EM SEPARAÇÃO</span>;
-      case "PENDENTE":
-        return <span className="text-xs font-black text-gray-600 uppercase tracking-wide">PENDENTE</span>;
-      case "DEVOLUCAO":
-        return <span className="text-xs font-black text-rose-700 uppercase tracking-wide">DEVOLUÇÃO</span>;
-      case "CANCELADO":
-        return <span className="text-xs font-black text-rose-700 uppercase tracking-wide">CANCELADO</span>;
-      default:
-        return <span className="text-xs font-black text-gray-700 uppercase tracking-wide">{status}</span>;
-    }
-  };
-
   // WhatsApp Link Helper
   const getWhatsAppLink = (phone: string, customerName: string, orderNumber: string, status: OrderStatus) => {
     const cleanPhone = phone.replace(/\D/g, "");
@@ -579,23 +557,30 @@ export function OrdersManager({
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between px-2 text-xs text-gray-500">
+        <div className="flex items-center justify-between px-1 text-xs text-gray-500">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleSelectAll}
               disabled={filteredOrders.length === 0}
-              className="inline-flex items-center gap-2 font-bold text-gray-600 hover:text-[#7A3F51] cursor-pointer disabled:opacity-40 transition-colors"
+              className="inline-flex items-center gap-2.5 font-bold text-gray-600 hover:text-[#7A3F51] cursor-pointer disabled:opacity-40 transition-colors"
               title="Marcar todos os pedidos visíveis"
             >
-              <div className="w-4 h-4 rounded border border-gray-300 bg-white flex items-center justify-center">
-                {isSomeSelected && <div className="w-2 h-2 bg-[#7A3F51] rounded-xs" />}
+              <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                isAllSelected
+                  ? "bg-[#7A3F51] border-[#7A3F51] text-white"
+                  : isSomeSelected
+                  ? "border-[#7A3F51] bg-[#FAF0F4]"
+                  : "border-[#C69A76]/60 bg-white"
+              }`}>
+                {isAllSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                {isSomeSelected && <div className="w-2.5 h-2.5 bg-[#7A3F51] rounded-xs" />}
               </div>
               <span>Selecionar Todos ({filteredOrders.length})</span>
             </button>
           </div>
           <span className="text-[11px] text-gray-400">
-            Dica: Marque os balões para cancelar ou aprovar vários pedidos em cadeia
+            Dica: Marque as caixas à esquerda para cancelar ou aprovar vários pedidos em cadeia
           </span>
         </div>
       )}
@@ -641,157 +626,181 @@ export function OrdersManager({
             const carrierLabel = order.shippingCarrier || "Correios PAC";
 
             return (
-              <div
-                key={order.id}
-                onClick={() => setViewingOrder(order)}
-                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group ${
-                  isSelected
-                    ? "border-[#7A3F51] bg-[#FAF0F4]/40 ring-2 ring-[#7A3F51]/30 shadow-xs"
-                    : isRefunded
-                    ? "border-rose-200 bg-rose-50/20 hover:border-rose-300"
-                    : "border-[#E9D9CD] hover:border-[#9C5B6F]"
-                }`}
-                title="Clique em qualquer parte do pedido para abrir a ficha completa"
-              >
-                
-                {/* Coluna 1: Pedido & Canal */}
-                <div className="min-w-[190px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-extrabold text-[#7A3F51] text-sm group-hover:text-[#9C5B6F] transition-colors">
-                      {order.orderNumber}
-                    </span>
-                    {renderChannelBadge(order.channel)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{formatDate(order.createdAt)}</span>
-                  </div>
-                </div>
+              <div key={order.id} className="flex items-center gap-3">
+                {/* Caixa para marcar fora do balão / na esquerda (onde marcado na imagem com a caixa vermelha) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelectOrder(order.id);
+                  }}
+                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0 ${
+                    isSelected
+                      ? "bg-[#7A3F51] border-[#7A3F51] text-white"
+                      : "bg-white border-[#C69A76]/60 hover:border-[#7A3F51] text-transparent hover:bg-[#FAF0F4]"
+                  }`}
+                  title={isSelected ? "Desmarcar pedido" : "Marcar pedido para ação em cadeia"}
+                  aria-label="Marcar pedido"
+                >
+                  <Check className={`w-3.5 h-3.5 stroke-[3] transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                </button>
 
-                {/* Coluna 2: Cliente & WhatsApp */}
-                <div className="min-w-[180px]">
-                  <span className="font-bold text-[#39313A] text-xs block group-hover:text-[#7A3F51] transition-colors">
-                    {order.customerName}
-                  </span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-gray-500 font-mono">
-                      {order.customerPhone}
-                    </span>
-                    <a
-                      href={getWhatsAppLink(order.customerPhone, order.customerName, order.orderNumber, order.status)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
-                      title="Enviar mensagem no WhatsApp com status do pedido"
-                    >
-                      <MessageCircle className="w-3 h-3 text-emerald-600" />
-                    </a>
-                  </div>
-                </div>
-
-                {/* Coluna 3: Resumo dos Produtos com Miniatura */}
-                <div className="flex items-center gap-3 min-w-[240px] flex-1">
-                  <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#FAF7F8] border border-[#E9D9CD] shrink-0 relative">
-                    <Image
-                      src={matchedProduct?.images?.[0] || "/logo.jpg"}
-                      alt={firstItem?.productName || "Produto"}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="text-xs">
-                    <div className="font-semibold text-[#39313A] line-clamp-1">
-                      {firstItem?.productName}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] font-bold text-[#9C5B6F] bg-[#FAF0F4] px-1.5 py-0.2 rounded border border-[#E9D9CD]">
-                        {totalUnits} un{totalUnits > 1 ? "s" : ""}
+                {/* Card do Pedido com Status no Balão Original */}
+                <div
+                  onClick={() => setViewingOrder(order)}
+                  className={`flex-1 bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group ${
+                    isSelected
+                      ? "border-[#7A3F51] bg-[#FAF0F4]/40 ring-2 ring-[#7A3F51]/30 shadow-xs"
+                      : isRefunded
+                      ? "border-rose-200 bg-rose-50/20 hover:border-rose-300"
+                      : "border-[#E9D9CD] hover:border-[#9C5B6F]"
+                  }`}
+                  title="Clique em qualquer parte do pedido para abrir a ficha completa"
+                >
+                  {/* Coluna 1: Pedido & Canal */}
+                  <div className="min-w-[190px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-extrabold text-[#7A3F51] text-sm group-hover:text-[#9C5B6F] transition-colors">
+                        {order.orderNumber}
                       </span>
-                      {firstItem?.variationName && (
-                        <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
-                          {firstItem.variationName}
+                      {renderChannelBadge(order.channel)}
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{formatDate(order.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Coluna 2: Cliente & WhatsApp */}
+                  <div className="min-w-[180px]">
+                    <span className="font-bold text-[#39313A] text-xs block group-hover:text-[#7A3F51] transition-colors">
+                      {order.customerName}
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[11px] text-gray-500 font-mono">
+                        {order.customerPhone}
+                      </span>
+                      <a
+                        href={getWhatsAppLink(order.customerPhone, order.customerName, order.orderNumber, order.status)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                        title="Enviar mensagem no WhatsApp com status do pedido"
+                      >
+                        <MessageCircle className="w-3 h-3 text-emerald-600" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Coluna 3: Resumo dos Produtos com Miniatura */}
+                  <div className="flex items-center gap-3 min-w-[240px] flex-1">
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#FAF7F8] border border-[#E9D9CD] shrink-0 relative">
+                      <Image
+                        src={matchedProduct?.images?.[0] || "/logo.jpg"}
+                        alt={firstItem?.productName || "Produto"}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="text-xs">
+                      <div className="font-semibold text-[#39313A] line-clamp-1">
+                        {firstItem?.productName}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-bold text-[#9C5B6F] bg-[#FAF0F4] px-1.5 py-0.2 rounded border border-[#E9D9CD]">
+                          {totalUnits} un{totalUnits > 1 ? "s" : ""}
                         </span>
+                        {firstItem?.variationName && (
+                          <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                            {firstItem.variationName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coluna 4: Frete / Logística da Encomenda */}
+                  <div className="min-w-[190px] text-left space-y-1">
+                    <div className="text-[11px] font-bold text-[#39313A] flex items-center gap-1 flex-wrap">
+                      <span>📦 {carrierLabel}</span>
+                      {displayCep && (
+                        <span className="font-mono text-[10px] text-gray-500">· {displayCep}</span>
                       )}
                     </div>
-                  </div>
-                </div>
-
-                {/* Coluna 4: Frete / Logística da Encomenda */}
-                <div className="min-w-[190px] text-left space-y-1">
-                  <div className="text-[11px] font-bold text-[#39313A] flex items-center gap-1 flex-wrap">
-                    <span>📦 {carrierLabel}</span>
-                    {displayCep && (
-                      <span className="font-mono text-[10px] text-gray-500">· {displayCep}</span>
+                    {isFreeForCustomer ? (
+                      <div className="space-y-0.5">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                          Cliente: Grátis
+                        </span>
+                        <div className="text-[11px] font-extrabold text-rose-700">
+                          Custo Frete Loja: -{formatCurrency(companyShip)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] space-y-0.5">
+                        <div className="text-gray-600 font-semibold">
+                          Cliente pagou: {formatCurrency(customerShip)}
+                        </div>
+                        <div className="font-bold text-rose-700">
+                          Custo Transportadora: -{formatCurrency(companyShip)}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {isFreeForCustomer ? (
-                    <div className="space-y-0.5">
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                        Cliente: Grátis
-                      </span>
-                      <div className="text-[11px] font-extrabold text-rose-700">
-                        Custo Frete Loja: -{formatCurrency(companyShip)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] space-y-0.5">
-                      <div className="text-gray-600 font-semibold">
-                        Cliente pagou: {formatCurrency(customerShip)}
-                      </div>
-                      <div className="font-bold text-rose-700">
-                        Custo Transportadora: -{formatCurrency(companyShip)}
-                      </div>
-                    </div>
-                  )}
-                </div>
 
-                {/* Coluna 5: Total & Meio de Pagamento */}
-                <div className="min-w-[130px] text-left lg:text-right">
-                  <div className={`text-base font-extrabold ${
-                    isRefunded ? "line-through decoration-2 decoration-rose-600 text-rose-600" : "text-[#7A3F51]"
-                  }`}>
-                    {formatCurrency(order.totalAmount)}
-                  </div>
-                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
-                    {order.paymentMethod}
-                  </span>
-                  {isRefunded && (
-                    <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tight block">
-                      Estornado do DRE
+                  {/* Coluna 5: Total & Meio de Pagamento */}
+                  <div className="min-w-[130px] text-left lg:text-right">
+                    <div className={`text-base font-extrabold ${
+                      isRefunded ? "line-through decoration-2 decoration-rose-600 text-rose-600" : "text-[#7A3F51]"
+                    }`}>
+                      {formatCurrency(order.totalAmount)}
+                    </div>
+                    <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
+                      {order.paymentMethod}
                     </span>
-                  )}
-                </div>
-
-                {/* Coluna 6: Status fora do balão (à esquerda) & Balão de Seleção (à direita) */}
-                <div 
-                  onClick={(e) => e.stopPropagation()} 
-                  className="flex items-center gap-3 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50 shrink-0"
-                >
-                  {/* Informação do Status Fora do Balão (à Esquerda) */}
-                  <div className="text-right">
-                    {renderOrderStatusText(order.status)}
+                    {isRefunded && (
+                      <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tight block">
+                        Estornado do DRE
+                      </span>
+                    )}
                   </div>
 
-                  {/* Balão de Seleção Múltipla */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelectOrder(order.id);
-                    }}
-                    className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ${
-                      isSelected
-                        ? "bg-[#7A3F51] border-[#7A3F51] text-white shadow-xs scale-105"
-                        : "bg-white border-[#E9D9CD] hover:border-[#9C5B6F] text-transparent hover:bg-[#FAF0F4]"
-                    }`}
-                    title={isSelected ? "Desmarcar este pedido" : "Marcar pedido para ação em cadeia"}
-                    aria-label="Selecionar pedido"
+                  {/* Coluna 6: Balão de Selecionar Status (Revertido e Restaurado) */}
+                  <div 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
                   >
-                    <Check className={`w-4 h-4 stroke-[3] transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} />
-                  </button>
+                    <select
+                      value={order.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleStatusChange(order, e.target.value as OrderStatus);
+                      }}
+                      className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
+                        isRefunded
+                          ? "bg-rose-100 text-rose-800 border-rose-300"
+                          : order.status === "CONCLUIDO"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : order.status === "ENVIADO"
+                          ? "bg-blue-100 text-blue-800 border-blue-300"
+                          : order.status === "SEPARACAO"
+                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                          : "bg-purple-100 text-purple-800 border-purple-300"
+                      }`}
+                      title="Alterar status do pedido"
+                    >
+                      <option value="PENDENTE">PENDENTE</option>
+                      <option value="PAGO">PAGO</option>
+                      <option value="SEPARACAO">EM SEPARAÇÃO</option>
+                      <option value="ENVIADO">ENVIADO</option>
+                      <option value="CONCLUIDO">CONCLUÍDO</option>
+                      <option value="DEVOLUCAO">DEVOLUÇÃO</option>
+                      <option value="CANCELADO">CANCELADO</option>
+                    </select>
+                  </div>
                 </div>
-
               </div>
             );
           })

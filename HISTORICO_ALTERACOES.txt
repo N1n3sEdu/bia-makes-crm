@@ -6,6 +6,73 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #017
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:23:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"na tela de login esta aparecendo 2 icones um que funcione a o outro não, deixe apenas o icone da Esquerda pois esta funcionando"
+
+MOTIVO DO AJUSTE:
+No navegador Microsoft Edge / navegadores baseados em Chromium no Windows, um ícone nativo
+de revelação de senha (::-ms-reveal) era inserido automaticamente à extrema direita do campo de senha,
+duplicando com o botão oficial do React (Eye / EyeOff). O botão nativo do navegador não
+possuía integração e causava confusão visual.
+
+ARQUIVOS MODIFICADOS:
+- src/app/globals.css (adicionadas regras globais ::-ms-reveal e ::-ms-clear com display: none !important)
+- src/app/admin/login/page.tsx (adicionadas classes [&::-ms-reveal]:hidden [&::-ms-clear]:hidden no input de senha)
+
+COMO TESTAR:
+1. Abra a tela de login (/admin/login) no Microsoft Edge ou Chrome no Windows.
+2. Digite uma senha no campo.
+3. Observe que agora existe apenas um único ícone de olho (o da esquerda, oficial do sistema),
+   que alterna perfeitamente entre exibir e ocultar a senha ao ser clicado.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/app/globals.css src/app/admin/login/page.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #016
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:22:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | PROMPT 3: GALERIA DE IMAGENS, QUICK VIEW INTERATIVO E CORREÇÃO DE ROTA /p/[sku]]"
+
+ARQUIVOS MODIFICADOS:
+- src/app/p/[sku]/page.tsx
+- src/components/storefront/Storefront.tsx
+- src/components/ChangeNotificationModal.tsx
+- HISTORICO_ALTERACOES.txt
+
+DETALHAMENTO DAS MODIFICAÇÕES:
+1. `src/app/p/[sku]/page.tsx`:
+   - Removido o fallback silencioso `|| products[0]` para que SKUs inválidos ou excluídos exibam corretamente a tela amigável de "Produto não encontrado" com o código buscado e link de retorno ao catálogo.
+   - Adicionado `useEffect` para sincronizar `selectedVar` e resetar `selectedImageIndex` quando o `product` carregar do contexto hidratado.
+   - Adicionada galeria de miniaturas (thumbnails) clicáveis abaixo da foto principal quando `product.images.length > 1`.
+   - Exibição das `tags` dermatológicas (ex: "Cruelty-Free", "Vegano", "Ácido Hialurônico").
+2. `src/components/storefront/Storefront.tsx`:
+   - Efeito Hover na Vitrine: Quando o produto possui `images[1]`, passar o mouse sobre o card faz transição suave de opacidade para revelar a segunda imagem (textura/swatch).
+   - Galeria no Quick View: Adicionado estado `quickViewImageIndex` com miniaturas clicáveis abaixo da imagem principal.
+   - Sincronização Total de Variação: O seletor de tons dentro do Quick View sincroniza bidirecionalmente com `activeVariations[quickViewProduct.id]`, garantindo que a variação escolhida pela cliente seja adicionada à sacola.
+   - Informações ANVISA & Tags: O modal Quick View agora exibe o Lote (`batch`), Data de Validade formatada (`formatDateShort(expiryDate)`) e as `tags` dermatológicas.
+
+INSTRUÇÕES PARA REVERSÃO:
+1. Restaurar src/app/p/[sku]/page.tsx e src/components/storefront/Storefront.tsx pelo histórico do Git.
+
+STATUS DO BUILD APÓS ALTERAÇÃO:
+Sucesso (Compilado e verificado sem erros).
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 REGISTRO #015
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

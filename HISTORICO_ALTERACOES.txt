@@ -6,6 +6,45 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #037
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 15:00:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"toda vez que seleciono para cancelar ele não muda o status, não estorna valor nem nada verifique oque ocorreu e resolva"
+
+MOTIVO DO AJUSTE:
+Diagnóstico profundo e correção na atualização de status de pedidos e estorno financeiro/Kardex:
+1. Em `src/context/BiaMakesContext.tsx`:
+   - Corrigida a função `updateOrderStatus`: agora ela busca o pedido com tolerância por `id` e por `orderNumber`
+     tanto no estado React `orders` quanto em `ordersRef.current`.
+   - Removido bloqueio prematuro que abortava a alteração caso a ref interna divergisse do estado visual do React.
+   - Adicionados fallbacks seguros para dados do operador (`adminUser?.name || "Eduardo Nunes"`) evitando
+     interrupção por exceções de propriedades indefinidas no registro de movimentações do Kardex.
+   - Garantido que `setOrders`, `setProducts` e `setMovements` atualizem o estado do React imediatamente,
+     persistindo o novo status `CANCELADO` tanto no localStorage quanto no servidor via `persistSnapshot`.
+2. Em `src/components/crm/OrdersManager.tsx`:
+   - Adicionados `onMouseDown={(e) => e.stopPropagation()}` e `onPointerDown={(e) => e.stopPropagation()}`
+     no `<select>` de status, impedindo que o clique na opção de cancelamento borbulhasse para o card do pedido
+     e abrisse a ficha modal antes de processar o evento de mudança (`onChange`).
+   - O card do pedido agora risca o valor do faturamento, exibe o selo 'ESTORNADO DO DRE' e reflete o status
+     em tempo real.
+
+COMO TESTAR:
+1. Acesse o CRM em /admin e vá na aba 'Pedidos & Vendas'.
+2. No balão de status do pedido (atualmente em PAGO), clique e selecione 'CANCELADO'.
+3. O status do pedido altera imediatamente para 'CANCELADO', o balão fica vermelho e o valor é riscado como estornado.
+4. Vá na aba 'Financeiro (DRE)' e confirme que o valor da venda foi estornado da receita e adicionado aos cancelamentos.
+5. Vá na aba 'Estoque Central (Kardex)' e confirme que as unidades do produto foram devolvidas ao estoque.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/context/BiaMakesContext.tsx src/components/crm/OrdersManager.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #036
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

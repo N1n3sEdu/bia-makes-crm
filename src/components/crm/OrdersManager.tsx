@@ -769,14 +769,19 @@ export function OrdersManager({
                   {/* Coluna 6: Balão de Selecionar Status (Revertido e Restaurado) */}
                   <div 
                     onClick={(e) => e.stopPropagation()} 
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
                     className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
                   >
                     <select
                       value={order.status}
                       onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onChange={(e) => {
                         e.stopPropagation();
-                        handleStatusChange(order, e.target.value as OrderStatus);
+                        const nextVal = e.target.value as OrderStatus;
+                        handleStatusChange(order, nextVal);
                       }}
                       className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
                         isRefunded

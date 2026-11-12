@@ -559,13 +559,13 @@ export function CrmDashboard({
             </div>
 
             {/* Seletor de Período Solicitado: 30 Dias | 14 Dias | 7 Dias */}
-            <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center text-[10px] font-bold self-start sm:self-auto">
+            <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center text-[11px] font-bold self-start sm:self-auto shrink-0">
               <button
                 type="button"
                 onClick={() => setChartPeriod("30days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "30days"
-                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"
                 }`}
               >
@@ -574,9 +574,9 @@ export function CrmDashboard({
               <button
                 type="button"
                 onClick={() => setChartPeriod("14days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "14days"
-                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"
                 }`}
               >
@@ -585,9 +585,9 @@ export function CrmDashboard({
               <button
                 type="button"
                 onClick={() => setChartPeriod("7days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "7days"
-                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"
                 }`}
               >

@@ -6,6 +6,53 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #013
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 11:36:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | PROMPT 2: MODAL DE CHECKOUT REAL (PIX / CARTÃO) E REGISTRO DE PEDIDO NO CRM]"
+
+ARQUIVOS MODIFICADOS:
+- src/context/BiaMakesContext.tsx
+- src/components/storefront/CheckoutModal.tsx
+- src/components/storefront/Storefront.tsx
+- src/app/p/[sku]/page.tsx
+- src/components/ChangeNotificationModal.tsx
+- HISTORICO_ALTERACOES.txt
+
+DETALHAMENTO DAS MODIFICAÇÕES:
+1. `src/context/BiaMakesContext.tsx`:
+   - Criada e exportada a função `createStorefrontOrder(orderData)` que:
+     a) Gera um `orderNumber` único no padrão `#BM-2026-XXXX`.
+     b) Mapeia os itens do carrinho e calcula o valor total líquido com frete e cupom.
+     c) Incrementa o `reservedStock` no produto central e debita do saldo da variação/tom correspondente.
+     d) Registra movimentação do tipo `'RESERVA'` no histórico `movements` (Kardex) para auditoria e rastreabilidade no módulo de Estoque.
+     e) Insere o novo pedido no topo de `orders` com status `'PENDENTE'`, sincronizando em tempo real com o `/admin` via `localStorage`.
+     f) Limpa o carrinho de compras após a conclusão.
+2. `src/components/storefront/CheckoutModal.tsx`:
+   - Componente de Checkout Completo em 3 etapas com a identidade visual da marca:
+     * Etapa 1 (Identificação & Entrega): Formulário completo com nome, WhatsApp formatado com máscara, e-mail e CEP com auto-preenchimento de logradouro/cidade.
+     * Etapa 2 (Pagamento):
+       - Aba PIX Instantâneo: QR Code SVG estilizado, campo com código "PIX Copia e Cola" com feedback tátil de cópia, chave oficial da loja e valor total.
+       - Aba Cartão de Crédito: Cartão de crédito visual interativo e seletor de parcelamento em até 3x sem juros.
+     * Etapa 3 (Confirmação & WhatsApp): Tela comemorativa exibindo o código `#BM-XXXX` gravado e botão "Enviar Comprovante e Acompanhar no WhatsApp Oficial" com mensagem estruturada.
+3. `src/components/storefront/Storefront.tsx`:
+   - Removido 100% o `alert()` nativo do botão da sacola, conectando-o ao `CheckoutModal`.
+4. `src/app/p/[sku]/page.tsx`:
+   - Adicionado botão de checkout direto para compra de produto individual em 1 clique via PIX/Cartão.
+
+INSTRUÇÕES PARA REVERSÃO:
+1. Restaurar os arquivos para o commit ou estado anterior a partir do Git.
+
+STATUS DO BUILD APÓS ALTERAÇÃO:
+Sucesso (Compilado e verificado com código de saída 0 pelo Next.js).
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 REGISTRO #012
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

@@ -195,7 +195,26 @@ export function Storefront({
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-[#39313A] leading-[1.12] tracking-tight">
-                Realce a sua beleza com <span className="text-[#9C5B6F] underline decoration-[#C69A76]/40 decoration-wavy underline-offset-8">sofisticação</span> & elegância.
+                Realce a sua beleza com{" "}
+                <span className="relative inline-block text-[#9C5B6F]">
+                  sofisticação
+                  <svg
+                    className="absolute left-0 -bottom-2 w-full h-2.5 text-[#C69A76]/50"
+                    viewBox="0 0 100 12"
+                    preserveAspectRatio="none"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M0 6 Q 6.25 0, 12.5 6 T 25 6 T 37.5 6 T 50 6 T 62.5 6 T 75 6 T 87.5 6 T 100 6"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      fill="transparent"
+                    />
+                  </svg>
+                </span>{" "}
+                & elegância.
               </h1>
 
               <p className="text-base sm:text-lg text-[#39313A]/80 max-w-2xl font-normal leading-relaxed">

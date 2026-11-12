@@ -561,16 +561,25 @@ export function CrmDashboard({
           <div className="space-y-2.5">
             <div className="bg-[#FAF7F8] p-3 rounded-2xl border border-[#E9D9CD] flex items-center justify-between">
               <span className="text-xs text-gray-600 font-medium">Custo Imobilizado (Custo Médio):</span>
-              <span className="text-sm font-extrabold text-[#7A3F51]">{formatCurrency(warehouseValuation.costTotal)}</span>
+              <span className="text-sm font-extrabold text-[#7A3F51] text-right">
+                {formatCurrency(warehouseValuation.costTotal)}
+              </span>
             </div>
             <div className="bg-[#FAF7F8] p-3 rounded-2xl border border-[#E9D9CD] flex items-center justify-between">
               <span className="text-xs text-gray-600 font-medium">Potencial de Venda Bruta:</span>
-              <span className="text-sm font-extrabold text-[#39313A]">{formatCurrency(warehouseValuation.retailTotal)}</span>
+              <span className="text-sm font-extrabold text-[#39313A] text-right">
+                {formatCurrency(warehouseValuation.retailTotal)}
+              </span>
             </div>
             <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200 flex items-center justify-between">
-              <span className="text-xs text-emerald-900 font-bold">Lucro Projetado do Estoque:</span>
-              <span className="text-sm font-extrabold text-emerald-700">
-                {formatCurrency(warehouseValuation.potentialGrossProfit)} ({warehouseValuation.potentialMargin}%)
+              <div className="flex flex-col">
+                <span className="text-xs text-emerald-900 font-bold">Lucro Projetado do Estoque:</span>
+                <span className="text-[10px] text-emerald-800 font-medium">
+                  Margem: {warehouseValuation.potentialMargin}%
+                </span>
+              </div>
+              <span className="text-sm font-extrabold text-emerald-700 text-right">
+                {formatCurrency(warehouseValuation.potentialGrossProfit)}
               </span>
             </div>
           </div>

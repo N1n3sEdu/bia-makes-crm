@@ -175,8 +175,9 @@ export function FinancialManager({
     });
     cmv = Math.round(cmv * 100) / 100;
 
-    const totalCosts = Math.round((fees + cmv + opex) * 100) / 100;
-    const net = Math.round((gross - totalCosts) * 100) / 100;
+    const finalOpex = gross > 0 ? opex : 0;
+    const totalCosts = Math.round((fees + cmv + finalOpex) * 100) / 100;
+    const net = gross > 0 ? Math.round((gross - totalCosts) * 100) / 100 : 0;
     const margin = gross > 0 ? Number(((net / gross) * 100).toFixed(1)) : 0;
     const ordersCount = filteredOrders.length;
 
@@ -189,7 +190,7 @@ export function FinancialManager({
       gross,
       fees,
       cmv,
-      opex,
+      opex: finalOpex,
       totalCosts,
       net,
       margin,

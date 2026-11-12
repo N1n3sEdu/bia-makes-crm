@@ -67,7 +67,7 @@ interface BiaMakesContextType {
   addUser: (newUser: SystemUser) => void;
   updateUser: (updated: SystemUser) => void;
   deleteUser: (id: string) => void;
-  addToCart: (product: Product, variation?: ProductVariation) => void;
+  addToCart: (product: Product, variation?: ProductVariation, openCart?: boolean) => boolean;
   updateCartQuantity: (index: number, quantity: number) => void;
   removeFromCart: (index: number) => void;
   addProduct: (newProduct: Product) => void;
@@ -86,9 +86,9 @@ interface BiaMakesContextType {
 const BiaMakesContext = createContext<BiaMakesContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  PRODUCTS: "biamakes_products_v2",
+  PRODUCTS: "biamakes_products_v4",
   MOVEMENTS: "biamakes_movements_v2",
-  ORDERS: "biamakes_orders_v2",
+  ORDERS: "biamakes_orders_v4",
   CHANNELS: "biamakes_channels_v2",
   USERS: "biamakes_users_v3",
   ADMIN_AUTH: "biamakes_admin_auth_v3",
@@ -144,11 +144,11 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    // Despesas operacionais do período (proporcionais ou base do negócio)
-    const operatingExpenses = initialFinancial.operatingExpenses;
+    // Despesas operacionais do período (proporcionais ou base do negócio quando há vendas)
+    const operatingExpenses = grossRevenue > 0 ? initialFinancial.operatingExpenses : 0;
 
     // 4. Lucro Líquido Real sem clamp artificial em zero (permite apuração de prejuízo operacional real caso ocorra)
-    const netProfit = grossRevenue - marketplaceFees - cmv - operatingExpenses;
+    const netProfit = grossRevenue > 0 ? grossRevenue - marketplaceFees - cmv - operatingExpenses : 0;
 
     const ordersCount = activeOrders.length;
     const profitMargin =
@@ -219,6 +219,13 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   // Load persisted state from localStorage
   useEffect(() => {
     try {
+      // Limpeza de chaves antigas com pedidos e estoque reservado de demonstração
+      localStorage.removeItem("biamakes_orders_v2");
+      localStorage.removeItem("biamakes_orders_v3");
+      localStorage.removeItem("biamakes_orders");
+      localStorage.removeItem("biamakes_products_v2");
+      localStorage.removeItem("biamakes_products_v3");
+
       const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (savedProducts) setProducts(JSON.parse(savedProducts));
 
@@ -428,7 +435,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Cart Actions com validação estrita de estoque por tom/variação
-  const addToCart = (product: Product, variation?: ProductVariation) => {
+  const addToCart = (product: Product, variation?: ProductVariation, openCart: boolean = true): boolean => {
     // Buscar produto e variação mais atualizados do estado
     const currentProd = products.find((p) => p.id === product.id) || product;
     const currentVar = variation
@@ -442,10 +449,19 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
     if (availableStock <= 0) {
       alert(`O tom selecionado "${currentVar?.name || currentProd.name}" está esgotado no momento.`);
-      return;
+      return false;
     }
 
-    let addedSuccessfully = false;
+    const existingItem = cart.find(
+      (item) =>
+        item.product.id === product.id &&
+        item.selectedVariation?.id === currentVar?.id
+    );
+
+    if (existingItem && existingItem.quantity >= availableStock) {
+      alert(`Você já adicionou a quantidade máxima disponível (${availableStock} un.) para o tom "${currentVar?.name || currentProd.name}".`);
+      return false;
+    }
 
     setCart((prev) => {
       const existingIndex = prev.findIndex(
@@ -457,7 +473,6 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       if (existingIndex > -1) {
         const currentQty = prev[existingIndex].quantity;
         if (currentQty >= availableStock) {
-          alert(`Você já adicionou a quantidade máxima disponível (${availableStock} un.) para o tom "${currentVar?.name || currentProd.name}".`);
           return prev;
         }
         const updated = [...prev];
@@ -465,22 +480,21 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
           ...updated[existingIndex],
           quantity: currentQty + 1,
         };
-        addedSuccessfully = true;
         return updated;
       } else {
-        addedSuccessfully = true;
         return [...prev, { product: currentProd, selectedVariation: currentVar, quantity: 1 }];
       }
     });
 
-    if (addedSuccessfully) {
+    if (openCart) {
       setIsCartOpen(true);
-      const itemPrice = currentProd.promoPrice || currentProd.salePrice;
-      trackEvent("add_to_cart", {
-        product_sku: currentProd.sku,
-        value_cents: Math.round(itemPrice * 100),
-      });
     }
+    const itemPrice = currentProd.promoPrice || currentProd.salePrice;
+    trackEvent("add_to_cart", {
+      product_sku: currentProd.sku,
+      value_cents: Math.round(itemPrice * 100),
+    });
+    return true;
   };
 
   const updateCartQuantity = (index: number, quantity: number) => {

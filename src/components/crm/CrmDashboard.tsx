@@ -155,21 +155,20 @@ export function CrmDashboard({
       .slice(0, 4);
   }, [products]);
 
-  // 5. Mix de Canais com Share de Vendas
+  // 5. Mix de Canais com Share de Vendas (100% dinâmico a partir dos pedidos reais faturados)
   const channelPerformance = useMemo(() => {
-    const baseRev: Record<string, number> = {
-      SITE: 21721.10,
-      INSTAGRAM: 8650.00,
-      MERCADO_LIVRE: 5740.00,
-      SHOPEE: 4220.00,
-      WHATSAPP: 3340.00,
-      TIKTOK: 1650.00,
-    };
+    const activeStatuses = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
+    const validOrders = orders.filter((o) => activeStatuses.includes(o.status));
 
-    const total = Object.values(baseRev).reduce((sum, v) => sum + v, 0);
+    const revenueByChannel: Record<string, number> = {};
+    validOrders.forEach((o) => {
+      revenueByChannel[o.channel] = (revenueByChannel[o.channel] || 0) + o.totalAmount;
+    });
+
+    const total = validOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
     return channels.map((c) => {
-      const rev = baseRev[c.code] ?? 1200;
+      const rev = revenueByChannel[c.code] ?? 0;
       const share = total > 0 ? ((rev / total) * 100).toFixed(1) : "0.0";
       const shareNum = total > 0 ? (rev / total) * 100 : 0;
       return {
@@ -179,7 +178,7 @@ export function CrmDashboard({
         shareNum,
       };
     }).sort((a, b) => b.revenue - a.revenue);
-  }, [channels]);
+  }, [channels, orders]);
 
   // 6. Central de Risco (Ruptura & ANVISA)
   const riskAlerts = useMemo(() => {

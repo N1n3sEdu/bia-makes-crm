@@ -6,6 +6,86 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #022
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:48:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"para fins de descobrimento iremos zerar todos esses valores de exemplo que você colocou no site, deixe todos produtos e estoques porem os pedidos e a parte financeira e para estar zerada e seguir corretamente quando for sendo alterado"
+
+MOTIVO DO AJUSTE:
+Limpeza e zeramento completo dos dados mockados de demonstração (pedidos, faturamento,
+comissões de marketplaces, CMV e DRE financeira) para permitir testes reais de ponta a ponta.
+Todos os produtos e quantidades físicas em prateleira foram preservados intactos no Kardex,
+com estoque reservado zerado (100% disponível para venda). Todos os cálculos de pedidos,
+gráficos e DRE passam a refletir exclusivamente as transações reais criadas pelo usuário.
+
+ARQUIVOS MODIFICADOS:
+- src/lib/data.ts (initialOrders=[], initialFinancial zerado com R$ 0,00, reservedStock=0 nos produtos)
+- src/context/BiaMakesContext.tsx (chaves biamakes_orders_v4 e biamakes_products_v4, limpeza de dados antigos de mock e cálculo reativo de despesas/lucro sobre vendas ativas)
+- src/components/crm/CrmDashboard.tsx (mix de canais 100% dinâmico a partir dos pedidos reais de orders)
+- src/components/crm/FinancialManager.tsx (DRE e consolidados de período zerados quando não há vendas, vinculados aos pedidos reais)
+
+COMO TESTAR:
+1. Acesse o CRM Dashboard (/admin).
+2. Verifique que 'Pedidos & Vendas' exibe (0 pedidos), a Esteira de Expedição está com 0 em todas as etapas,
+   a Meta do Mês exibe R$ 0,00 de R$ 50.000,00 e o Gráfico de Evolução Comercial exibe R$ 0,00.
+3. Acesse a aba Financeiro (DRE): faturamento bruto, custos e lucro líquido iniciam em R$ 0,00.
+4. Acesse o Estoque Central: os produtos físicos estão preservados com estoque 100% disponível.
+5. Realize uma compra na Loja Virtual ou adicione um pedido no CRM: observe que a parte financeira,
+   o gráfico diário, a esteira e o estoque reservado atualizam na hora.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/lib/data.ts src/context/BiaMakesContext.tsx src/components/crm/CrmDashboard.tsx src/components/crm/FinancialManager.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #021
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:41:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | PROMPT 6: SEO DINÂMICO, OPEN GRAPH PARA WHATSAPP/INSTAGRAM E API VIACEP REAL]"
+
+ARQUIVOS MODIFICADOS / CRIADOS:
+- src/app/p/[sku]/layout.tsx (novo Server Component com generateMetadata dinâmico, Open Graph/Twitter Card e JSON-LD Product/Offer para Google Shopping)
+- src/app/layout.tsx (configurado metadataBase oficial para resolução de imagens em previews sociais)
+- src/lib/utils.ts (adicionados fetchCepInfo com timeout 3s + fallback offline, formatCepMask e cálculo de prazos por UF)
+- src/components/storefront/Storefront.tsx (simulador CEP do Quick View com ViaCEP real, máscara 00000-000 e erro inline sem alert())
+- src/app/p/[sku]/page.tsx (simulador CEP da página de produto com ViaCEP real, máscara 00000-000 e erro inline sem alert())
+- src/components/storefront/CheckoutModal.tsx (preenchimento automático real de logradouro/bairro/cidade/UF via ViaCEP)
+- src/components/ChangeNotificationModal.tsx (adicionado registro change-2026-11-12-18)
+
+COMO REVERTER:
+- Remover src/app/p/[sku]/layout.tsx e restaurar os demais arquivos pelo histórico Git.
+
+--------------------------------------------------------------------------------
+REGISTRO #020
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:36:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | PROMPT 5: ORDENAÇÃO, TAGS DERMATOLÓGICAS, BUSCA POR SKU E LISTA DE FAVORITOS]"
+
+ARQUIVOS MODIFICADOS:
+- src/components/storefront/Storefront.tsx (pills de product.tags nos cards, busca ampliada para sku/description/tags sem distinção de acentos, seletor de ordenação featured/price-asc/price-desc/rating/discount, wishlist Heart nos cards + filtro rápido Meus Favoritos persistido em biamakes_wishlist_v1 e Toast Notification ao adicionar à sacola)
+- src/context/BiaMakesContext.tsx (addToCart agora retorna boolean indicando sucesso e aceita parâmetro opcional openCart para permitir fluxo com Toast na vitrine)
+- src/app/page.tsx (passagem da prop onOpenCart={() => setIsCartOpen(true)} ao Storefront)
+- src/components/ChangeNotificationModal.tsx (adicionado registro change-2026-11-12-17)
+
+COMO REVERTER:
+- Restaurar os arquivos listados pelo histórico Git caso queira voltar ao comportamento sem wishlist, ordenação ou toast.
+
+--------------------------------------------------------------------------------
 REGISTRO #019
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

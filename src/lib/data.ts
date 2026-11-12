@@ -20,7 +20,7 @@ export const initialProducts: Product[] = [
     salePrice: 79.90,
     promoPrice: 69.90,
     physicalStock: 85,
-    reservedStock: 12,
+    reservedStock: 0,
     minStock: 25,
     shippingValue: 12.90,
     freeShipping: false,
@@ -60,7 +60,7 @@ export const initialProducts: Product[] = [
     salePrice: 42.90,
     promoPrice: 38.90,
     physicalStock: 120,
-    reservedStock: 15,
+    reservedStock: 0,
     minStock: 30,
     shippingValue: 9.90,
     freeShipping: false,
@@ -99,7 +99,7 @@ export const initialProducts: Product[] = [
     salePrice: 119.90,
     promoPrice: 99.90,
     physicalStock: 48,
-    reservedStock: 8,
+    reservedStock: 0,
     minStock: 15,
     shippingValue: 0,
     freeShipping: true,
@@ -136,7 +136,7 @@ export const initialProducts: Product[] = [
     salePrice: 139.90,
     promoPrice: 119.00,
     physicalStock: 32,
-    reservedStock: 5,
+    reservedStock: 0,
     minStock: 12,
     shippingValue: 0,
     freeShipping: true,
@@ -171,7 +171,7 @@ export const initialProducts: Product[] = [
     salePrice: 68.90,
     promoPrice: 59.90,
     physicalStock: 14, // Estoque baixo para teste de alerta
-    reservedStock: 3,
+    reservedStock: 0,
     minStock: 20,
     shippingValue: 14.50,
     freeShipping: false,
@@ -206,7 +206,7 @@ export const initialProducts: Product[] = [
     salePrice: 54.90,
     promoPrice: 49.90,
     physicalStock: 65,
-    reservedStock: 10,
+    reservedStock: 0,
     minStock: 20,
     shippingValue: 11.90,
     freeShipping: false,
@@ -297,204 +297,7 @@ export const getRelativeDateIso = (daysAgo: number, timeStr: string = "12:00"): 
   return d.toISOString();
 };
 
-export const initialOrders: Order[] = [
-  {
-    id: "ord-1001",
-    orderNumber: "BM-2026-1001",
-    channel: "MERCADO_LIVRE",
-    customerName: "Camila Guimarães",
-    customerEmail: "camila.g@gmail.com",
-    customerPhone: "(11) 98765-4321",
-    items: [
-      {
-        productId: "prod-1",
-        productName: "Base Líquida Velvet Matte HD",
-        sku: "BM-BASE-01-T02",
-        variationName: "Tom 02 — Bege Nude",
-        quantity: 1,
-        price: 79.90
-      },
-      {
-        productId: "prod-2",
-        productName: "Batom Líquido Matte Rosé Gold",
-        sku: "BM-BAT-02-RE",
-        variationName: "Rosé Elegance",
-        quantity: 1,
-        price: 38.90
-      }
-    ],
-    totalAmount: 118.80,
-    shippingAmount: 12.90,
-    status: "SEPARACAO",
-    paymentMethod: "Mercado Pago (Cartão)",
-    shippingAddress: "Rua Oscar Freire, 1200 - Jardins, São Paulo/SP",
-    trackingCode: "MLBR9920182BR",
-    createdAt: getRelativeDateIso(0, "09:15")
-  },
-  {
-    id: "ord-1002",
-    orderNumber: "BM-2026-1002",
-    channel: "SHOPEE",
-    customerName: "Juliana Andrade",
-    customerEmail: "ju.andrade@outlook.com",
-    customerPhone: "(21) 99123-5566",
-    items: [
-      {
-        productId: "prod-3",
-        productName: "Paleta de Sombras Nude Glamour",
-        sku: "BM-PAL-03-RG",
-        variationName: "Edição Rosé Gold Glamour",
-        quantity: 1,
-        price: 99.90
-      }
-    ],
-    totalAmount: 99.90,
-    shippingAmount: 0,
-    status: "ENVIADO",
-    paymentMethod: "ShopeePay (PIX)",
-    shippingAddress: "Av. Atlântica, 450 - Copacabana, Rio de Janeiro/RJ",
-    trackingCode: "SHP77281920BR",
-    createdAt: getRelativeDateIso(1, "18:30")
-  },
-  {
-    id: "ord-1003",
-    orderNumber: "BM-2026-1003",
-    channel: "SITE",
-    customerName: "Mariana Souza",
-    customerEmail: "mari.souza@yahoo.com.br",
-    customerPhone: "(31) 98455-1122",
-    items: [
-      {
-        productId: "prod-4",
-        productName: "Kit 12 Pincéis Profissionais Master Gold",
-        sku: "BM-PIN-04-RC",
-        variationName: "Estojo Rosé Champagne",
-        quantity: 1,
-        price: 119.00
-      },
-      {
-        productId: "prod-5",
-        productName: "Sérum Facial Iluminador Glow",
-        sku: "BM-SER-05-30ML",
-        variationName: "Frasco 30ml",
-        quantity: 1,
-        price: 59.90
-      }
-    ],
-    totalAmount: 178.90,
-    shippingAmount: 0,
-    status: "PAGO",
-    paymentMethod: "PIX Direto (Site Bia Makes)",
-    shippingAddress: "Rua da Bahia, 1850 - Lourdes, Belo Horizonte/MG",
-    createdAt: getRelativeDateIso(0, "11:40")
-  },
-  {
-    id: "ord-1004",
-    orderNumber: "BM-2026-1004",
-    channel: "TIKTOK",
-    customerName: "Beatriz Nogueira",
-    customerEmail: "bia.nogueira@gmail.com",
-    customerPhone: "(41) 97788-9900",
-    items: [
-      {
-        productId: "prod-2",
-        productName: "Batom Líquido Matte Rosé Gold",
-        sku: "BM-BAT-02-MC",
-        variationName: "Marsala Chic",
-        quantity: 2,
-        price: 38.90
-      }
-    ],
-    totalAmount: 77.80,
-    shippingAmount: 9.90,
-    status: "CONCLUIDO",
-    paymentMethod: "TikTok Shop Pay",
-    shippingAddress: "Rua XV de Novembro, 890 - Centro, Curitiba/PR",
-    trackingCode: "TTK4481029BR",
-    createdAt: getRelativeDateIso(2, "14:20")
-  },
-  {
-    id: "ord-1005",
-    orderNumber: "BM-2026-1005",
-    channel: "INSTAGRAM",
-    customerName: "Larissa Manoela Ramos",
-    customerEmail: "larissa.ramos@gmail.com",
-    customerPhone: "(11) 99887-1122",
-    items: [
-      {
-        productId: "prod-1",
-        productName: "Base Líquida Velvet Matte HD",
-        sku: "BM-BASE-01-T01",
-        variationName: "Tom 01 — Porcelana Clara",
-        quantity: 1,
-        price: 79.90
-      },
-      {
-        productId: "prod-6",
-        productName: "Pó Translúcido Ultrafino HD Efeito Blur",
-        sku: "BM-PO-06-INC",
-        variationName: "Incolor Translúcido Universal",
-        quantity: 1,
-        price: 49.90
-      }
-    ],
-    totalAmount: 129.80,
-    shippingAmount: 0,
-    status: "PAGO",
-    paymentMethod: "Instagram Direct / PIX",
-    shippingAddress: "Alameda Santos, 1400 - Cerqueira César, São Paulo/SP",
-    trackingCode: "IGBR8892102BR",
-    createdAt: getRelativeDateIso(0, "14:15")
-  },
-  {
-    id: "ord-1006",
-    orderNumber: "BM-2026-1006",
-    channel: "FACEBOOK",
-    customerName: "Fernanda Costa",
-    customerEmail: "fer.costa@hotmail.com",
-    customerPhone: "(21) 98877-3344",
-    items: [
-      {
-        productId: "prod-3",
-        productName: "Paleta de Sombras Nude Glamour",
-        sku: "BM-PAL-03-RG",
-        variationName: "Edição Rosé Gold Glamour",
-        quantity: 1,
-        price: 99.90
-      }
-    ],
-    totalAmount: 99.90,
-    shippingAmount: 11.90,
-    status: "SEPARACAO",
-    paymentMethod: "Facebook Marketplace / Cartão",
-    shippingAddress: "Rua Barata Ribeiro, 300 - Copacabana, Rio de Janeiro/RJ",
-    createdAt: getRelativeDateIso(1, "12:05")
-  },
-  {
-    id: "ord-1007",
-    orderNumber: "BM-2026-1007",
-    channel: "WHATSAPP",
-    customerName: "Patrícia Silveira",
-    customerEmail: "patricia.silveira@gmail.com",
-    customerPhone: "(19) 99122-8899",
-    items: [
-      {
-        productId: "prod-5",
-        productName: "Sérum Facial Iluminador Glow",
-        sku: "BM-SER-05-30ML",
-        variationName: "Frasco 30ml",
-        quantity: 2,
-        price: 59.90
-      }
-    ],
-    totalAmount: 119.80,
-    shippingAmount: 0,
-    status: "PAGO",
-    paymentMethod: "WhatsApp Pay / PIX",
-    shippingAddress: "Av. Brasil, 750 - Jardim Brasil, Campinas/SP",
-    createdAt: getRelativeDateIso(0, "13:45")
-  }
-];
+export const initialOrders: Order[] = [];
 
 export const initialChannels: MarketplaceChannel[] = [
   {
@@ -667,14 +470,14 @@ export const initialCustomers: Customer[] = [
 ];
 
 export const initialFinancial: FinancialMetric = {
-  grossRevenue: 48950.00,
-  marketplaceFees: 7240.00,
-  cmv: 18450.00,
-  operatingExpenses: 5600.00,
-  netProfit: 17660.00,
-  profitMargin: 36.08,
-  ordersCount: 412,
-  averageTicket: 118.81
+  grossRevenue: 0.00,
+  marketplaceFees: 0.00,
+  cmv: 0.00,
+  operatingExpenses: 0.00,
+  netProfit: 0.00,
+  profitMargin: 0.00,
+  ordersCount: 0,
+  averageTicket: 0.00
 };
 
 export const initialUsers: SystemUser[] = [

@@ -17,6 +17,60 @@ export interface SystemChangeLogItem {
 // Histórico de alterações estruturado para exibição do usuário eduardo.nunes
 export const SYSTEM_CHANGE_LOGS: SystemChangeLogItem[] = [
   {
+    id: "change-2026-11-12-14",
+    timestamp: "2026-11-12T12:05:00-03:00",
+    title: "Substituição de Marketplaces por Central de Tráfego & Origem dos Clientes com Netlify Database",
+    description: `1. Infraestrutura de Analytics & Netlify Database:
+   - Criada migration oficial 'netlify/database/migrations/0001_traffic_analytics.sql' com tabelas 'analytics_events' e 'tracked_links' e índices otimizados para tempo, sessão, SKU e canal.
+   - Conexão nativa e parametrizada via '@netlify/database' (getDatabase / db.sql).
+2. Endpoints e Coleta de Tráfego no Servidor:
+   - POST '/api/track': Recebe eventos de tráfego, sanitiza inputs, filtra bots (facebookexternalhit, WhatsApp, Googlebot) e caminhos /admin, infere dispositivo/SO/navegador por User-Agent e geolocalização por 'x-nf-geo' da Netlify, com rate limit em memória.
+   - GET '/api/analytics': Agregações em SQL com timezone 'America/Sao_Paulo', comparativo vs período anterior, séries temporais, ranking de origens, funil de compras, top produtos, horários de pico e feed recente. Protegido via token seguro ANALYTICS_ADMIN_TOKEN.
+   - GET '/r/[code]': Redirecionador rápido (302) que registra cliques no servidor e redireciona com UTMs anexadas sem risco de Open Redirect.
+   - GET/POST/PATCH '/api/links': CRUD completo de links encurtados com validação estrita de destino interno.
+3. Tracker Cliente, LGPD & Rastreamento Determinístico:
+   - Criados 'src/lib/analytics/track.ts', 'src/components/analytics/AnalyticsTracker.tsx' e 'CookieConsentBanner.tsx' no layout global.
+   - Classificação determinística da origem: UTMs -> Click IDs (fbclid, gclid, ttclid) -> Referrer -> Direto.
+   - Disparo instrumentado de eventos: 'pageview', 'product_view' (em /p/[sku] e Quick View), 'add_to_cart' (no contexto), 'begin_checkout' (no CheckoutModal), 'whatsapp_order' (no envio ao WhatsApp) e 'outbound_click' (botões sociais).
+4. Nova Central de Tráfego & Origem no Admin:
+   - Substituto de Marketplaces: Nova tela 'src/components/crm/TrafficManager.tsx' com 4 Hero Cards, Gráfico Temporal SVG, Ranking de Origens com barras coloridas e insight em linguagem natural, Funil de 5 etapas com destaque de gargalo, Top 10 Produtos, Heatmap 7x24, Tabela de Links Rastreáveis com gerador de QR Code em PNG, e Exportação CSV formatada para Excel PT-BR.
+   - Preservação do Financeiro: Bloco recolhível discreto ao final da tela para configurar taxas de comissão e frete padrão dos canais (channels[].feePercentage), mantendo o DRE e os cálculos operacionais 100% íntegros.
+   - Atualizados App Router (/admin), Spotlight (Alt+5) e rotas. Removido MarketplacesManager.tsx.`,
+    filesModified: [
+      "netlify/database/migrations/0001_traffic_analytics.sql",
+      "src/types/analytics.ts",
+      "src/types/index.ts",
+      "src/lib/analytics/db.ts",
+      "src/lib/analytics/track.ts",
+      "src/app/api/track/route.ts",
+      "src/app/api/analytics/route.ts",
+      "src/app/r/[code]/route.ts",
+      "src/app/api/links/route.ts",
+      "src/components/analytics/AnalyticsTracker.tsx",
+      "src/components/analytics/CookieConsentBanner.tsx",
+      "src/components/crm/traffic/QrCodeModal.tsx",
+      "src/components/crm/traffic/CreateTrackedLinkModal.tsx",
+      "src/components/crm/traffic/TrafficFunnelChart.tsx",
+      "src/components/crm/traffic/TrafficHeatmap.tsx",
+      "src/components/crm/traffic/TrafficTimeSeriesChart.tsx",
+      "src/components/crm/traffic/ChannelFeesSettingsBlock.tsx",
+      "src/components/crm/TrafficManager.tsx",
+      "src/app/layout.tsx",
+      "src/app/admin/page.tsx",
+      "src/components/CommandMenuSpotlight.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/context/BiaMakesContext.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "README.md",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter para a tela antiga de Marketplaces:
+1. Restaurar MarketplacesManager.tsx a partir do backup do git.
+2. Reverter as referências da aba 'traffic' para 'marketplaces' em src/app/admin/page.tsx e CommandMenuSpotlight.tsx.`
+  },
+  {
     id: "change-2026-11-12-13",
     timestamp: "2026-11-12T11:36:00-03:00",
     title: "Modal de Checkout Real (PIX / Cartão), Reserva Atômica no Kardex e Gravação de Pedido no CRM",

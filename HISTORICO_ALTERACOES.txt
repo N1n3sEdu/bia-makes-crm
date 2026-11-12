@@ -6,6 +6,74 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #014
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:05:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"MISSÃO: Substituição da aba Marketplaces por Central de Tráfego & Origem dos Clientes com Netlify Database, Coleta no Servidor e Links Rastreáveis"
+
+ARQUIVOS CRIADOS:
+- netlify/database/migrations/0001_traffic_analytics.sql
+- src/types/analytics.ts
+- src/lib/analytics/db.ts
+- src/lib/analytics/track.ts
+- src/app/api/track/route.ts
+- src/app/api/analytics/route.ts
+- src/app/r/[code]/route.ts
+- src/app/api/links/route.ts
+- src/components/analytics/AnalyticsTracker.tsx
+- src/components/analytics/CookieConsentBanner.tsx
+- src/components/crm/traffic/QrCodeModal.tsx
+- src/components/crm/traffic/CreateTrackedLinkModal.tsx
+- src/components/crm/traffic/TrafficFunnelChart.tsx
+- src/components/crm/traffic/TrafficHeatmap.tsx
+- src/components/crm/traffic/TrafficTimeSeriesChart.tsx
+- src/components/crm/traffic/ChannelFeesSettingsBlock.tsx
+- src/components/crm/TrafficManager.tsx
+
+ARQUIVOS MODIFICADOS:
+- src/types/index.ts (adicionado campo attribution?: { source, medium, campaign, link_code } no tipo Order)
+- src/app/layout.tsx (montado AnalyticsTracker em Suspense e CookieConsentBanner LGPD)
+- src/app/admin/page.tsx (substituída aba 'marketplaces' por 'traffic' em ROLE_ALLOWED_TABS e renderização de TrafficManager)
+- src/components/CommandMenuSpotlight.tsx (atualizado Alt+5 para Tráfego & Origens dos Clientes e ação rápida para novo link rastreável)
+- src/components/storefront/Storefront.tsx (instrumentado trackEvent para product_view em Quick View e outbound_click em WhatsApp, Instagram, Shopee)
+- src/components/storefront/CheckoutModal.tsx (instrumentado trackEvent para begin_checkout e whatsapp_order)
+- src/context/BiaMakesContext.tsx (instrumentado trackEvent para add_to_cart e persistência de attribution em createStorefrontOrder)
+- src/app/p/[sku]/page.tsx (instrumentado trackEvent para product_view, outbound_click e begin_checkout)
+- README.md (documentação de execução com netlify dev, migrations e variáveis de ambiente)
+- src/components/ChangeNotificationModal.tsx
+- HISTORICO_ALTERACOES.txt
+
+ARQUIVOS REMOVIDOS:
+- src/components/crm/MarketplacesManager.tsx (substituído pelo novo módulo de Tráfego)
+
+DETALHAMENTO DAS MODIFICAÇÕES:
+1. Armazenamento e Migrations:
+   - Migration oficial '0001_traffic_analytics.sql' para Netlify Database (Postgres) criando 'analytics_events' e 'tracked_links' com índices dedicados.
+   - Conexão parametrizada via '@netlify/database' (getDatabase) sem risco de injeção SQL.
+2. Coleta e Tracker no Servidor:
+   - POST /api/track: Validação estrita de tipos, sanitização de strings, rate limit por sessão, parser simples de User-Agent e geolocalização 'x-nf-geo' da Netlify, com filtro rigoroso de bots.
+   - GET /api/analytics: Consultas agregadas em SQL com timezone 'America/Sao_Paulo', comparativo vs período anterior, séries temporais, ranking de origens, funil de compras, top produtos e feed recente. Protegido via ANALYTICS_ADMIN_TOKEN.
+   - GET /r/[code]: Redirecionador rápido 302 que grava 'link_click' no servidor e redireciona com parâmetros UTM sanitizados (sem open redirect).
+   - GET/POST/PATCH /api/links: CRUD de links rastreáveis com códigos encurtados amigáveis.
+3. Central de Tráfego no Painel Admin:
+   - Nova tela 'TrafficManager.tsx' com 4 Hero Cards com variação %, gráfico temporal SVG, ranking de origens com barras coloridas e insight automático em linguagem natural, funil de 5 etapas com destaque de gargalo, produtos mais acessados com selo 'Muito visto, pouco vendido', cliques de saída, perfil do público (dispositivos, cidades, heatmap 7x24), tabela de links com gerador de QR Code em PNG e exportador CSV formatado para Excel em português.
+4. Preservação do Financeiro:
+   - Bloco recolhível discreto ao final da tela para gerenciar taxas de comissão (channels[].feePercentage) e frete base, mantendo o DRE e os relatórios financeiros 100% íntegros.
+
+INSTRUÇÕES PARA REVERSÃO:
+1. Restaurar MarketplacesManager.tsx a partir do backup do Git.
+2. Reverter referências de 'traffic' para 'marketplaces' em src/app/admin/page.tsx e CommandMenuSpotlight.tsx.
+
+STATUS DO BUILD APÓS ALTERAÇÃO:
+Sucesso (Compilado e verificado sem erros).
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 REGISTRO #013
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

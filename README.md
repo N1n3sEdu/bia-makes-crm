@@ -41,6 +41,14 @@ O projeto conta com **duas experiências completas em uma única plataforma unif
   - Alertas automáticos de **Estoque Crítico** (ponto de reposição).
   - Alertas de **Conformidade ANVISA**: listagem de lotes cosméticos com validade inferior a 90 dias.
   - Gráfico de canais de venda e tabela de últimas vendas.
+- **Tráfego & Origem dos Clientes (Novo Hub de Analytics):**
+  - Mapeamento determinístico de visitantes (Instagram, TikTok, WhatsApp, Google, Facebook, Direto).
+  - Contagem real de acessos (`pageviews`), visitantes únicos (`visitor_id`), cliques em links e taxa de conversão em vendas no WhatsApp.
+  - Gráfico temporal interativo (por hora hoje e por dia nos demais períodos) e Funil de Compras com detecção automática de gargalos.
+  - Top 10 cosméticos mais visualizados e selo "Muito visto, pouco vendido".
+  - Gestão de Links Rastreáveis com gerador automático de QR Code para impressão em embalagens e etiquetas.
+  - Heatmap 7x24 com indicação dos melhores dias e horários para postar stories e reels.
+  - Bloco recolhível de taxas dos canais para o DRE Financeiro.
 - **Catálogo & Cadastro de Produtos:**
   - Listagem com filtros, cálculo em tempo real de margem de lucro (Preço de Venda vs Preço de Custo).
   - Modal completo para cadastrar novos produtos e editar existentes com SKU, EAN-13, lote, validade e variações de cores/tons.
@@ -80,6 +88,25 @@ npm run dev
 
 Abra o seu navegador em:
 👉 **http://localhost:3000**
+
+### 2. Rodando com Netlify CLI & Netlify Database (Analytics & Geolocalização)
+Para executar com o banco de dados Postgres gerenciado da Netlify e emulação dos cabeçalhos de geolocalização (`x-nf-geo`):
+
+```bash
+# 1. Instalar a CLI da Netlify (se ainda não tiver)
+npm install -g netlify-cli
+
+# 2. Conectar ao site ou rodar o dev server com banco provisionado
+netlify dev
+```
+
+#### Variáveis de Ambiente Recomendadas:
+- `NETLIFY_DB_URL`: String de conexão Postgres gerenciada automaticamente pelo Netlify Database.
+- `ANALYTICS_ADMIN_TOKEN`: Token secreto do servidor para proteger os endpoints de leitura de analytics (`/api/analytics` e `/api/links`).
+
+#### Migrations do Banco de Dados:
+As migrations ficam na pasta `netlify/database/migrations/`:
+- `0001_traffic_analytics.sql`: Cria as tabelas `analytics_events` e `tracked_links` com índices de performance para data, tipo de evento, origem e sessão. A Netlify aplica as migrations automaticamente no deploy ou via `netlify db:migrate`.
 
 Você terá imediatamente acesso à Loja Virtual e ao Painel CRM completo com todas as telas, botões, modais e cálculos funcionando!
 

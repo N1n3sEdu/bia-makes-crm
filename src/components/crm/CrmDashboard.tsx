@@ -49,7 +49,7 @@ export function CrmDashboard({
   channels,
   onNavigateTab,
 }: CrmDashboardProps) {
-  const [chartPeriod, setChartPeriod] = useState<"30days" | "7days" | "today">("7days");
+  const [chartPeriod, setChartPeriod] = useState<"30days" | "14days" | "7days" | "today">("7days");
 
   // Saudação dinâmica com base no horário
   const greeting = useMemo(() => {
@@ -212,30 +212,13 @@ export function CrmDashboard({
     return [...lowStock, ...expiring].slice(0, 4);
   }, [products]);
 
-  // Performance comercial integrada ao financeiro real (com suporte aos períodos: 30 dias, 7 dias e Dia atual)
+  // Performance comercial integrada ao financeiro real (com suporte aos períodos: 30 dias, 14 dias e 7 dias)
   const commercialPerformance = useMemo(() => {
     const activeStatuses = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
     const now = new Date();
-    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     // Pedidos faturados válidos
     const validOrders = orders.filter((o) => activeStatuses.includes(o.status));
-
-    // Pedidos de hoje
-    const todayOrders = validOrders.filter((o) => {
-      const t = new Date(o.createdAt).getTime();
-      return !isNaN(t) && t >= todayMidnight;
-    });
-
-    // 1. Visão Dia Atual (dividido em 6 faixas horárias de 4 horas)
-    const todayBlocks = [
-      { label: "00h-04h", minH: 0, maxH: 4 },
-      { label: "04h-08h", minH: 4, maxH: 8 },
-      { label: "08h-12h", minH: 8, maxH: 12 },
-      { label: "12h-16h", minH: 12, maxH: 16 },
-      { label: "16h-20h", minH: 16, maxH: 20 },
-      { label: "20h-24h", minH: 20, maxH: 24 },
-    ];
 
     interface ChartItem {
       label: string;
@@ -244,22 +227,9 @@ export function CrmDashboard({
       isToday?: boolean;
     }
 
-    const todayData: ChartItem[] = todayBlocks.map((b) => {
-      const ordersInBlock = todayOrders.filter((o) => {
-        const d = new Date(o.createdAt);
-        const h = d.getHours();
-        return h >= b.minH && h < b.maxH;
-      });
-      const gross = ordersInBlock.reduce((acc, o) => acc + o.totalAmount, 0);
-      return {
-        label: b.label,
-        gross: Math.round(gross * 100) / 100,
-        ordersCount: ordersInBlock.length,
-      };
-    });
-
-    // 2. Visão 7 Dias (últimos 7 dias retroativos incluindo hoje)
     const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+    // 1. Visão 7 Dias (últimos 7 dias diários retroativos incluindo hoje)
     const last7DaysData: ChartItem[] = Array.from({ length: 7 }).map((_, idx) => {
       const dayOffset = 6 - idx; // 6 dias atrás até 0 (hoje)
       const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset);
@@ -282,7 +252,31 @@ export function CrmDashboard({
       };
     });
 
-    // 3. Visão 30 Dias (agrupados em 5 semanas de 6 dias para visualização limpa em barras)
+    // 2. Visão 14 Dias (últimos 14 dias diários retroativos com data DD/MM)
+    const last14DaysData: ChartItem[] = Array.from({ length: 14 }).map((_, idx) => {
+      const dayOffset = 13 - idx;
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset);
+      const startMs = targetDate.getTime();
+      const endMs = startMs + 86400000;
+
+      const dayOrders = validOrders.filter((o) => {
+        const t = new Date(o.createdAt).getTime();
+        return !isNaN(t) && t >= startMs && t < endMs;
+      });
+
+      const dayGross = dayOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+      const isToday = dayOffset === 0;
+      const dateFormatted = `${targetDate.getDate().toString().padStart(2, '0')}/${(targetDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+      return {
+        label: isToday ? "Hoje" : dateFormatted,
+        gross: Math.round(dayGross * 100) / 100,
+        ordersCount: dayOrders.length,
+        isToday,
+      };
+    });
+
+    // 3. Visão 30 Dias (agrupados em 5 blocos de 6 dias para barras proporcionais e legíveis)
     const last30DaysData: ChartItem[] = [
       { label: "Sem 1", daysBackStart: 30, daysBackEnd: 24 },
       { label: "Sem 2", daysBackStart: 24, daysBackEnd: 18 },
@@ -315,10 +309,10 @@ export function CrmDashboard({
       activeData = last30DaysData;
       periodTitle = "Evolução Comercial (Últimos 30 Dias)";
       periodSubtitle = "Faturamento consolidado das últimas semanas refletindo as vendas ativas.";
-    } else if (chartPeriod === "today") {
-      activeData = todayData;
-      periodTitle = "Evolução Comercial (Dia Atual)";
-      periodSubtitle = "Vendas e pedidos faturados hoje ao longo do dia em tempo real.";
+    } else if (chartPeriod === "14days") {
+      activeData = last14DaysData;
+      periodTitle = "Evolução Comercial (Últimos 14 Dias)";
+      periodSubtitle = "Tendência diária das duas últimas semanas sincronizada ao financeiro.";
     }
 
     const currentTotalGross = activeData.reduce((acc, d) => acc + d.gross, 0);
@@ -564,7 +558,7 @@ export function CrmDashboard({
               </p>
             </div>
 
-            {/* Seletor de Período Solicitado: 30 dias | 7 dias | Dia atual */}
+            {/* Seletor de Período Solicitado: 30 Dias | 14 Dias | 7 Dias */}
             <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center text-[10px] font-bold self-start sm:self-auto">
               <button
                 type="button"
@@ -579,6 +573,17 @@ export function CrmDashboard({
               </button>
               <button
                 type="button"
+                onClick={() => setChartPeriod("14days")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  chartPeriod === "14days"
+                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    : "text-gray-600 hover:text-[#7A3F51]"
+                }`}
+              >
+                14 Dias
+              </button>
+              <button
+                type="button"
                 onClick={() => setChartPeriod("7days")}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   chartPeriod === "7days"
@@ -587,17 +592,6 @@ export function CrmDashboard({
                 }`}
               >
                 7 Dias
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartPeriod("today")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  chartPeriod === "today"
-                    ? "bg-[#7A3F51] text-white shadow-2xs"
-                    : "text-gray-600 hover:text-[#7A3F51]"
-                }`}
-              >
-                Dia Atual
               </button>
             </div>
           </div>

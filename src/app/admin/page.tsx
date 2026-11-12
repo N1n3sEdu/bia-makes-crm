@@ -63,6 +63,7 @@ export default function AdminPage() {
     updateProductStock,
     updateOrderStatus,
     syncChannel,
+    syncAllChannels,
     updateChannel,
   } = useBiaMakes();
 
@@ -232,6 +233,7 @@ export default function AdminPage() {
           <MarketplacesManager
             channels={channels}
             onSyncChannel={syncChannel}
+            onSyncAllChannels={syncAllChannels}
             onUpdateChannel={updateChannel}
           />
         )}

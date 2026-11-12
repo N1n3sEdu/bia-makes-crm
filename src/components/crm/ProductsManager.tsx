@@ -614,7 +614,7 @@ export function ProductsManager({
               </div>
 
               {/* Row 3: Pricing, Shipping & Margins */}
-              <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD] grid grid-cols-1 sm:grid-cols-5 gap-4 items-center">
+              <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD] grid grid-cols-1 sm:grid-cols-5 gap-4 items-start">
                 <div>
                   <label className="block font-bold text-[#39313A] mb-1">Preço Custo (R$)</label>
                   <input
@@ -669,7 +669,7 @@ export function ProductsManager({
                     <span className="text-[10px] font-bold text-emerald-700">Frete Grátis</span>
                   </label>
                 </div>
-                <div className="text-center sm:text-right">
+                <div className="text-center sm:text-right pt-1">
                   <div className="text-[10px] text-gray-500 font-bold uppercase">Margem Bruta</div>
                   <div className="text-xl font-extrabold text-emerald-700">{liveMargin}%</div>
                   <div className="text-[10px] text-gray-400">

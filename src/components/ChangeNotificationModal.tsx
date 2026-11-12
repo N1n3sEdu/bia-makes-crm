@@ -17,6 +17,171 @@ export interface SystemChangeLogItem {
 // Histórico de alterações estruturado para exibição do usuário eduardo.nunes
 export const SYSTEM_CHANGE_LOGS: SystemChangeLogItem[] = [
   {
+    id: "change-2026-11-11-11",
+    timestamp: "2026-11-11T17:44:00-03:00",
+    title: "Correção e Sincronização Real de 'Vendas do Dia' com Pedidos Ativos e DRE no Financeiro",
+    description: `1. Eliminação de Fallback Estático: Removidos valores artificiais mockados (R$ 1.840,50 e 14 pedidos) que geravam discrepância contra o Faturamento Bruto real da loja.
+2. Cálculo Real e Atômico de Vendas do Dia: Agora 'Vendas do Dia' soma estritamente os pedidos faturados com status ativo (PAGO, SEPARACAO, ENVIADO, CONCLUIDO) criados na data de hoje, apurando valor, contagem e ticket médio real.
+3. Alinhamento Completo com o Seletor de Período (Hoje, 7 Dias, Mês Atual, 12 Meses): A seleção do período agora filtra dinamicamente os pedidos faturados e calcula custos reais (CMV dos SKUs, comissões dos canais e despesas operacionais proporcionais), garantindo conformidade entre todos os cards de KPIs.
+4. Mix de Canais e Dashboard Sincronizados: O Mix de Canais e o gráfico diário da CrmDashboard agora consomem as vendas reais de hoje e o faturamento por canal real a partir dos pedidos ativos.`,
+    filesModified: [
+      "src/components/crm/FinancialManager.tsx",
+      "src/components/crm/CrmDashboard.tsx",
+      "src/lib/data.ts",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o cálculo de Vendas do Dia:
+1. Restaurar o arquivo FinancialManager.tsx anterior onde todayMetrics utilizava o fallback estático.
+2. Restaurar CrmDashboard.tsx e data.ts para os valores anteriores.`
+  },
+  {
+    id: "change-2026-11-11-10",
+    timestamp: "2026-11-11T17:30:00-03:00",
+    title: "Dashboard Executiva Bento Grid: Metas, Esteira de Expedição e Inteligência Comercial",
+    description: `1. Header Cockpit + Termômetro de Meta Mensal: Saudação dinâmica por horário com status ao vivo, atalhos rápidos e termômetro visual da Meta Mensal de R$ 60.000,00 com barra de progresso animada, valor restante e projeção inteligente de fechamento do mês.
+2. Esteira de Expedição Workflow: 4 cards horizontais em formato de pipeline logístico interativo (Aguardando Pagamento, Em Separação, Prontos para Envio, Concluídos Hoje) com contadores em destaque, badges de status e botão de atalho direto para a Central de Pedidos.
+3. Bento Grid Executivo & Gráficos Interativos: Gráfico de barras dos últimos 7 dias com tooltips e receita total, e Card de Valuation do Estoque com valor total em Marsala, volume físico, peças reservadas e taxa de giro saudável.
+4. Curva ABC de Produtos + Mix de Canais: Ranking dos 4 produtos mais vendidos com foto, badge top rank (1º ao 4º), categoria, unidades e faturamento real; ao lado, gráfico de barras com distribuição de faturamento por canal (Loja Própria, Mercado Livre, Shopee, etc.) com percentual relativo.
+5. Central de Riscos Operacionais: Alertas de Ruptura de Estoque Iminente (com botão de reposição imediata para o Kardex) e Monitor de Conformidade ANVISA / Lotes (validação e rastreabilidade sanitária de cosméticos).`,
+    filesModified: [
+      "src/components/crm/CrmDashboard.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter a Dashboard Executiva Bento Grid para a versão anterior:
+1. Restaurar o arquivo src/components/crm/CrmDashboard.tsx a partir do backup ou histórico do git.
+2. O dashboard voltará a exibir os cards simples e as listas duplicadas de pedidos e produtos.`
+  },
+  {
+    id: "change-2026-11-11-9",
+    timestamp: "2026-11-11T17:23:00-03:00",
+    title: "Calibração Visual e Slider Dinâmico no Modal de Configuração de Marketplaces",
+    description: `1. Slider Interativo de Taxa de Comissão: No modal de configuração de canais do MarketplacesManager, foi implementado um controle duplo (slider range de 0% a 30% com visualizador dinâmico de taxa), facilitando o ajuste de comissões por canal (0% Direto a 30% Full) que alimenta o DRE.
+2. Refinamento de Conexão: Confirmação e revalidação do Hub de Conectividade com sincronização paralela e terminal developer console em tempo real.`,
+    filesModified: [
+      "src/components/crm/MarketplacesManager.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o slider e voltar ao input numérico tradicional:
+1. No MarketplacesManager.tsx, substituir o input type='range' por um input type='number' tradicional.`
+  },
+  {
+    id: "change-2026-11-11-8",
+    timestamp: "2026-11-11T17:19:00-03:00",
+    title: "Transformação da Central de Marketplaces em Hub de Conectividade Multicanal (MarketplacesManager.tsx)",
+    description: `1. Painel Global de Sincronização: Banner executivo com 3 indicadores (Canais Conectados, Total de Anúncios Integrados e Status da Fila com latência de 120ms) e botão mestre 'Forçar Sincronização em Lote de Todos os Canais'.
+2. Conectores Estilo App Store: Cards repaginados para Mercado Livre, Shopee, Amazon, TikTok Shop, Shein, Magalu e Instagram Shopping com badges dinâmicos de status (CONECTADO em verde, DESCONECTADO em cinza, SINCRONIZANDO em âmbar com pulso), grade com taxa de comissão, frete base e anúncios ativos, além de barra de saúde de última sincronização e botões com spinners.
+3. Modal Moderno de Configuração: Ajuste de nome de conta, URL oficial, taxa de comissão contratual (%) com impacto direto no DRE, frete padrão embutido e botão de desconexão/reconexão segura.
+4. Laboratório de Idempotência & Webhooks: Explicação amigável sobre proteção contra duplo débito, gerador de IDs de eventos (X-Event-ID), botão de teste interativo e Terminal Developer Console escuro com realce de sintaxe em tempo real.`,
+    filesModified: [
+      "src/components/crm/MarketplacesManager.tsx",
+      "src/app/admin/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o módulo de marketplaces para a versão anterior:
+1. Restaurar o arquivo MarketplacesManager.tsx anterior com os cartões antigos e o log de texto cru.
+2. Remover o botão de sincronização em lote e o novo Developer Console.`
+  },
+  {
+    id: "change-2026-11-11-7",
+    timestamp: "2026-11-11T17:12:00-03:00",
+    title: "Transformação do Módulo de Estoque & Almoxarifado com Kardex Auditável (StockManager.tsx)",
+    description: `1. Hero Banner de Saúde do Inventário: 3 cards executivos no topo (Valor Total em Reais a Preço de Custo, Volume Físico no Armazém com divisão físico/reservado/disponível, e Nível de Alerta/Ruptura com contagem de produtos críticos).
+2. Duas Abas Principais: Aba 1 'Posição Atual do Catálogo (Armazém)' e Aba 2 'Auditoria & Histórico de Movimentações (Kardex)'.
+3. Régua de Capacidade Visual de Estoque (Aba 1): Barra proporcional indicando saldo físico, reservado e estoque mínimo de segurança com marcador vertical, badge pulsante 'Comprar / Repor', e Accordion expansível para visualização de estoque por tonalidade/variação individual.
+4. Kardex com Trilha de Auditoria (Aba 2): Filtros por tipo de movimentação (+ Entrada, - Saída, ↺ Devolução, ⚙ Ajuste), busca por termo, indicação de evolução de saldo (Anterior -> Movimentado -> Saldo Atual), operador responsável e exportação em CSV com 1 clique.
+5. Modal de Movimentação Seguro & Intuitivo: Botões visuais grandes (+ Entrada, - Baixa, ⚙ Balanço), seletor obrigatório de variação/tom quando existente, operador capturado automaticamente do contexto autenticado, tags rápidas de motivos documentados e cálculo prévio em tempo real com barreira contra violação do estoque reservado.`,
+    filesModified: [
+      "src/components/crm/StockManager.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o módulo de estoque para o layout anterior:
+1. Restaurar o arquivo StockManager.tsx anterior com a listagem vertical simples.
+2. Remover a estrutura de abas 'inventory' e 'kardex', o Accordion e a exportação CSV do Kardex.`
+  },
+  {
+    id: "change-2026-11-11-6",
+    timestamp: "2026-11-11T17:08:00-03:00",
+    title: "Repaginação da Central de Pedidos & Expedição Multicanal (OrdersManager.tsx)",
+    description: `1. Esteira de Status Counters: 5 cards interativos no topo (Todos, Aguardando/Pagos, Em Separação, Enviados/Concluídos e Devoluções/Cancelados) permitindo filtrar instantaneamente em um clique.
+2. Barra de Filtros & Atalho '/': Campo de busca com foco rápido na tecla '/', pílulas coloridas para canais oficiais (Site, Instagram, Mercado Livre, Shopee, WhatsApp) e seletor rápido de períodos (Tudo, Hoje, 7 Dias, 30 Dias).
+3. Visual Row-Cards: Cada pedido é um cartão elegante com badge do canal, data/hora relativa, miniatura do produto principal com tons e quantidades, link direto do WhatsApp do cliente com mensagem pronta de status, e valor formatado com selo de estorno se aplicável.
+4. Modal Executivo de Expedição (Romaneio): Timeline visual das etapas (Criado -> Pago -> Separação -> Enviado -> Entregue), cópia de endereço de entrega com 1 clique, código de rastreamento com cópia rápida, breakdown contábil e botão de impressão de Ficha de Separação.
+5. Modal de Estorno Transparente & Empty State: Feedback visual educativo informando quantidade de produtos devolvidos ao estoque e valor abatido do DRE.`,
+    filesModified: [
+      "src/components/crm/OrdersManager.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter a central de pedidos para o formato de tabela tradicional anterior:
+1. Restaurar o arquivo OrdersManager.tsx com a tag <table> simples.
+2. Remover o atalho de teclado '/', os Status Counters e as ações de WhatsApp Web.`
+  },
+  {
+    id: "change-2026-11-11-5",
+    timestamp: "2026-11-11T17:02:00-03:00",
+    title: "Repaginação Visual Executiva do Módulo Financeiro & DRE (FinancialManager.tsx)",
+    description: `1. Cabeçalho Executivo & Controles: Título sofisticado, Seletor de Período Global em formato de pílulas ('Hoje', '7 Dias', 'Mês Atual' e '12 Meses') e botão de Exportação de Relatório (CSV).
+2. Faixa Superior de 4 Hero Cards: Faturamento Bruto (com crescimento e estornos), Custos Totais Deduzidos (% do faturamento), Lucro Líquido Real (com margem % em destaque) e Vendas do Dia (Ao Vivo) com badge pulsante.
+3. DRE Visual em Cachoeira (Waterfall): Régua progressiva horizontal didática mostrando os 5 passos do caminho do dinheiro (Receita -> Comissões -> CMV -> Despesas Fixas -> Lucro Líquido Retido) acompanhada de barra proporcional segmentada de cada real faturado.
+4. Navegação por Abas Internas:
+   - Aba A: 'Visão Geral & Mix de Canais' com gráfico vertical dos últimos meses, barras de progresso horizontais dos canais e tabela de rentabilidade por canal.
+   - Aba B: 'DRE Contábil Detalhado' com estrutura contábil zebrada e destacada.
+   - Aba C: 'Histórico de 12 Meses & Transações' com consolidação anual e lista das últimas transações.
+5. Paleta Oficial & UX: Marsala (#7A3F51/#9C5B6F), Nude (#FAF7F8/#E9D9CD), Rosé Gold (#C69A76) e Esmeralda (#059669/#10B981) com animações suaves e total responsividade.`,
+    filesModified: [
+      "src/components/crm/FinancialManager.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter o layout financeiro para a versão anterior:
+1. Restaurar o arquivo FinancialManager.tsx anterior com o gráfico de pizza SVG e rolagem vertical contínua.
+2. Remover a estrutura de abas 'overview', 'dre' e 'history'.`
+  },
+  {
+    id: "change-2026-11-11-4",
+    timestamp: "2026-11-11T16:55:00-03:00",
+    title: "Governança de Estoque: Trava de Saldo Físico, Kardex Justificado, Variações Atômicas e Proteção de Reserva",
+    description: `1. Trava de Edição Direta de Estoque: O campo 'Estoque Físico Central' e o estoque de variações na edição de produtos foram bloqueados contra edição manual solta no ProductsManager.tsx e no BiaMakesContext.tsx. Todo ajuste de saldo agora exige obrigatoriamente lançamento auditado no Kardex (StockManager) com motivo, operador e tipo (ENTRADA, SAIDA, AJUSTE ou DEVOLUCAO).
+2. Integridade Central x Variações: Para produtos com variações (ex: tons de base/batom), o estoque físico central é estritamente a soma dos estoques das variações (physicalStock = sum(variations.stock)).
+3. Movimentação Atômica por Variação: No StockManager, adicionado seletor específico de variação/tom ao lançar movimentações, atualizando de forma atômica o saldo da variação selecionada e o estoque central consolidado.
+4. Bloqueio de Estoque Abaixo da Reserva: Implementada barreira de segurança que impede qualquer movimentação (saída/ajuste) que resulte em estoque físico inferior ao estoque reservado (reservedStock) do produto, preservando pedidos já comprometidos.`,
+    filesModified: [
+      "src/context/BiaMakesContext.tsx",
+      "src/components/crm/ProductsManager.tsx",
+      "src/components/crm/StockManager.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter estas regras de estoque para o estado anterior:
+1. No ProductsManager.tsx, remover a propriedade 'disabled={Boolean(editingProduct)}' dos inputs de estoque.
+2. No BiaMakesContext.tsx, reverter updateProductStock para aceitar apenas (productId, newPhysical) e remover a soma de variações no addProduct/updateProduct.
+3. No StockManager.tsx, remover a verificação de reservedStock e o seletor de variação no modal.`
+  },
+  {
+    id: "change-2026-11-11-3",
+    timestamp: "2026-11-11T16:48:00-03:00",
+    title: "Validações E-commerce no Cadastro de Produtos (SKU, EAN-13, Preços e State Mutability)",
+    description: `1. Validação de Unicidade de SKU: Bloqueio contra duplicidade no SKU principal e nos SKUs de variações/tons, comparando com todo o catálogo existente e internamente no formulário antes de salvar.
+2. EAN-13 Oficial com GTIN Checksum: Implementado cálculo e validação do dígito verificador (módulo 10) do EAN-13 brasileiro (prefixo 789). Adicionado botão 'Gerar Válido' e feedback visual em tempo real no formulário.
+3. Validação de Preços e Margens: Exigência de Preço de Venda > 0. Se houver Preço Promocional, validação estrita de que 0 < Preço Promo < Preço de Venda. Alerta visual e confirmação de segurança caso o preço efetivo gere margem negativa (prejuízo por unidade vendida).
+4. Correção de Mutação de Estado: Substituição da mutação direta em formVariations por atualizações imutáveis com deep copy (.map() com novo objeto) ao editar cor, nome, SKU e estoque de variações, eliminando bugs de estado no React context.`,
+    filesModified: [
+      "src/components/crm/ProductsManager.tsx",
+      "src/lib/utils.ts",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter estas validações para o estado anterior:
+1. No ProductsManager.tsx, remover as checagens de seenInternalSkus e isValidEan13 no handleSave.
+2. Em src/lib/utils.ts, remover as funções calculateEan13Checksum, isValidEan13 e generateValidEan13.
+3. Restaurar as linhas de mutação direta 'updated[i].colorHex = e.target.value'.`
+  },
+  {
     id: "change-2026-11-11-2",
     timestamp: "2026-11-11T16:35:00-03:00",
     title: "Posicionamento do Alerta de Alteração na Barra Superior ao lado da Lupa",

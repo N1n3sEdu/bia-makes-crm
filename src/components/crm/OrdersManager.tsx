@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { 
   Search, 
   Eye,
@@ -9,9 +10,24 @@ import {
   PackageCheck,
   DollarSign,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Clock,
+  Truck,
+  MessageCircle,
+  Copy,
+  Printer,
+  ChevronRight,
+  ExternalLink,
+  ShieldCheck,
+  Layers,
+  ShoppingBag,
+  Store,
+  Instagram,
+  Filter,
+  Check,
+  ArrowUpRight
 } from "lucide-react";
-import { Order, OrderStatus } from "@/types";
+import { Order, OrderStatus, ChannelType } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface OrdersManagerProps {
@@ -21,6 +37,8 @@ interface OrdersManagerProps {
   channels?: any[];
 }
 
+type PeriodFilterType = "all" | "today" | "week" | "month";
+
 export function OrdersManager({
   orders,
   onUpdateOrderStatus,
@@ -28,14 +46,18 @@ export function OrdersManager({
   channels = [],
 }: OrdersManagerProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [channelFilter, setChannelFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [channelFilter, setChannelFilter] = useState<string>("ALL");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>("all");
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedTracking, setCopiedTracking] = useState(false);
   const [refundModalOrder, setRefundModalOrder] = useState<{
     order: Order;
     newStatus: OrderStatus;
   } | null>(null);
 
+  // Spotlight listener
   useEffect(() => {
     const onSpotlightFilterOrder = (e: Event) => {
       const customEv = e as CustomEvent<string>;
@@ -52,13 +74,25 @@ export function OrdersManager({
       window.removeEventListener("spotlight-filter-order", onSpotlightFilterOrder);
   }, [orders]);
 
+  // Tecla '/' para foco rápido na barra de pesquisa
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault();
+        const searchInput = document.getElementById("order-search-input");
+        searchInput?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleStatusChange = (order: Order, newStatus: OrderStatus) => {
     const wasRefunded = order.status === "DEVOLUCAO" || order.status === "CANCELADO";
     const isNowRefunded = newStatus === "DEVOLUCAO" || newStatus === "CANCELADO";
 
     onUpdateOrderStatus(order.id, newStatus);
 
-    // Open confirmation / refund summary modal when selecting DEVOLUCAO or CANCELADO
     if (!wasRefunded && isNowRefunded) {
       setRefundModalOrder({
         order: { ...order, status: newStatus },
@@ -67,432 +101,753 @@ export function OrdersManager({
     }
   };
 
-  const filteredOrders = orders.filter((o) => {
-    const matchSearch = 
-      o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchChannel = channelFilter === "ALL" || o.channel === channelFilter;
-    const matchStatus = statusFilter === "ALL" || o.status === statusFilter;
-    return matchSearch && matchChannel && matchStatus;
-  });
+  // 1. Contadores Rápidos do Funil (Status Counters)
+  const statusCounts = useMemo(() => {
+    const total = orders.length;
+    const pending = orders.filter((o) => o.status === "PENDENTE" || o.status === "PAGO").length;
+    const separation = orders.filter((o) => o.status === "SEPARACAO").length;
+    const shipped = orders.filter((o) => o.status === "ENVIADO" || o.status === "CONCLUIDO").length;
+    const refunded = orders.filter((o) => o.status === "DEVOLUCAO" || o.status === "CANCELADO").length;
+
+    return { total, pending, separation, shipped, refunded };
+  }, [orders]);
+
+  // Filtragem composta dos pedidos
+  const filteredOrders = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return orders.filter((o) => {
+      const matchSearch = 
+        o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.customerPhone.includes(searchTerm);
+
+      const matchChannel = channelFilter === "ALL" || o.channel === channelFilter;
+
+      let matchStatus = true;
+      if (statusFilter === "PENDING_GROUP") {
+        matchStatus = o.status === "PENDENTE" || o.status === "PAGO";
+      } else if (statusFilter === "SEPARATION_GROUP") {
+        matchStatus = o.status === "SEPARACAO";
+      } else if (statusFilter === "SHIPPED_GROUP") {
+        matchStatus = o.status === "ENVIADO" || o.status === "CONCLUIDO";
+      } else if (statusFilter === "REFUND_GROUP") {
+        matchStatus = o.status === "DEVOLUCAO" || o.status === "CANCELADO";
+      } else if (statusFilter !== "ALL") {
+        matchStatus = o.status === statusFilter;
+      }
+
+      let matchPeriod = true;
+      const orderDate = new Date(o.createdAt);
+      if (periodFilter === "today") {
+        matchPeriod = o.createdAt.slice(0, 10) === todayStr;
+      } else if (periodFilter === "week") {
+        matchPeriod = orderDate >= sevenDaysAgo;
+      } else if (periodFilter === "month") {
+        matchPeriod = orderDate >= thirtyDaysAgo;
+      }
+
+      return matchSearch && matchChannel && matchStatus && matchPeriod;
+    });
+  }, [orders, searchTerm, channelFilter, statusFilter, periodFilter]);
+
+  // WhatsApp Link Helper
+  const getWhatsAppLink = (phone: string, customerName: string, orderNumber: string, status: OrderStatus) => {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    const text = encodeURIComponent(
+      `Olá ${customerName}! Aqui é da Bia Makes 💕 Informamos que o seu pedido #${orderNumber} está com status: ${status}. Se precisar de qualquer ajuda, estamos à disposição!`
+    );
+    return `https://wa.me/${formattedPhone}?text=${text}`;
+  };
+
+  // Helper de badge e ícone de canais
+  const renderChannelBadge = (ch: ChannelType) => {
+    switch (ch) {
+      case "SITE":
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#7A3F51]/10 text-[#7A3F51] border border-[#7A3F51]/20"><Store className="w-3 h-3" /> Site Oficial</span>;
+      case "INSTAGRAM":
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-pink-50 text-[#E1306C] border border-pink-200"><Instagram className="w-3 h-3" /> Instagram Direct</span>;
+      case "MERCADO_LIVRE":
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Mercado Livre</span>;
+      case "SHOPEE":
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">Shopee</span>;
+      case "WHATSAPP":
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><MessageCircle className="w-3 h-3" /> WhatsApp VIP</span>;
+      default:
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200">{ch}</span>;
+    }
+  };
+
+  // Copiar endereço
+  const handleCopyAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
+  };
+
+  // Copiar rastreio
+  const handleCopyTracking = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedTracking(true);
+    setTimeout(() => setCopiedTracking(false), 2000);
+  };
+
+  // Imprimir ficha de separação
+  const handlePrintPackingSlip = () => {
+    window.print();
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* Title */}
+      {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-bold text-[#39313A]">
-            Central de Pedidos & Vendas Multicanal
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#39313A] tracking-tight">
+            Central de Pedidos & Expedição Multicanal
           </h2>
           <p className="text-xs text-[#39313A]/70 mt-0.5">
-            Gerenciamento consolidado de pedidos vindos do Site, Mercado Livre, Shopee, TikTok Shop e Balcão.
+            Gestão operacional em tempo real de separação, postagem, rastreamento e estornos de vendas.
           </p>
         </div>
-      </div>
-
-      {/* Filters row */}
-      <div className="bg-white p-4 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por Nº do Pedido ou Cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-[#FAF7F8] rounded-full border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
-          {/* Canal */}
-          <select
-            value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value)}
-            className="text-xs bg-[#FAF7F8] border border-[#E9D9CD] rounded-full px-3 py-1.5 focus:outline-none focus:border-[#9C5B6F] font-semibold"
-          >
-            <option value="ALL">Todos os Canais</option>
-            <option value="SITE">Loja Virtual (B2C)</option>
-            <option value="MERCADO_LIVRE">Mercado Livre</option>
-            <option value="SHOPEE">Shopee</option>
-            <option value="TIKTOK">TikTok Shop</option>
-            <option value="BALCAO">Balcão / Loja Física</option>
-          </select>
-
-          {/* Status */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs bg-[#FAF7F8] border border-[#E9D9CD] rounded-full px-3 py-1.5 focus:outline-none focus:border-[#9C5B6F] font-semibold"
-          >
-            <option value="ALL">Todos os Status</option>
-            <option value="PENDENTE">Pendente</option>
-            <option value="PAGO">Pago</option>
-            <option value="SEPARACAO">Em Separação</option>
-            <option value="ENVIADO">Enviado</option>
-            <option value="CONCLUIDO">Concluído</option>
-            <option value="DEVOLUCAO">Devolução</option>
-            <option value="CANCELADO">Cancelado</option>
-          </select>
+        <div className="flex items-center gap-2 text-xs font-bold text-gray-500 bg-white px-3.5 py-2 rounded-2xl border border-[#E9D9CD] shadow-sm">
+          <ShoppingBag className="w-4 h-4 text-[#9C5B6F]" />
+          <span>Total: <strong>{orders.length} pedidos registrados</strong></span>
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-3xl border border-[#E9D9CD] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#FAF7F8] border-b border-[#E9D9CD] text-[#39313A]/70 uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="py-3.5 px-4">Pedido / Data</th>
-                <th className="py-3.5 px-4">Canal</th>
-                <th className="py-3.5 px-4">Cliente</th>
-                <th className="py-3.5 px-4">Itens</th>
-                <th className="py-3.5 px-4">Valor Total</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E9D9CD]/40">
-              {filteredOrders.map((order) => {
-                const totalItems = order.items.reduce((acc, i) => acc + i.quantity, 0);
-                const isRefundedOrCancelled =
-                  order.status === "DEVOLUCAO" || order.status === "CANCELADO";
+      {/* 1. CABEÇALHO COM CONTADORES DE FUNIL EM FORMA DE CARDS RÁPIDOS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        
+        {/* Card: Todos */}
+        <button
+          onClick={() => setStatusFilter("ALL")}
+          className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
+            statusFilter === "ALL"
+              ? "bg-[#7A3F51] text-white border-[#7A3F51] shadow-md scale-[1.02]"
+              : "bg-white hover:bg-[#FAF0F4] text-[#39313A] border-[#E9D9CD]"
+          }`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === "ALL" ? "text-white/80" : "text-gray-400"}`}>
+            Todos os Pedidos
+          </span>
+          <span className="text-2xl font-extrabold mt-1 block tracking-tight">
+            {statusCounts.total}
+          </span>
+          <span className={`text-[10px] mt-0.5 block ${statusFilter === "ALL" ? "text-white/80" : "text-gray-500"}`}>
+            Base geral consolidada
+          </span>
+        </button>
 
-                return (
-                  <tr
-                    key={order.id}
-                    className={`transition-colors ${
-                      isRefundedOrCancelled
-                        ? "bg-red-50/30 hover:bg-red-50/50"
-                        : "hover:bg-[#FAF7F8]/50"
-                    }`}
-                  >
-                    
-                    {/* Order Number & Date */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-mono font-bold text-[#7A3F51]">
-                        {order.orderNumber}
-                      </div>
-                      <div className="text-[10px] text-gray-500">
-                        {formatDate(order.createdAt)}
-                      </div>
-                    </td>
+        {/* Card: Aguardando / Pendentes */}
+        <button
+          onClick={() => setStatusFilter("PENDING_GROUP")}
+          className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
+            statusFilter === "PENDING_GROUP"
+              ? "bg-purple-700 text-white border-purple-700 shadow-md scale-[1.02]"
+              : "bg-white hover:bg-purple-50/50 text-[#39313A] border-[#E9D9CD]"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === "PENDING_GROUP" ? "text-white/80" : "text-purple-600"}`}>
+              Aguardando / Pagos
+            </span>
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+          </div>
+          <span className="text-2xl font-extrabold mt-1 block tracking-tight text-purple-700" style={{ color: statusFilter === "PENDING_GROUP" ? "#fff" : undefined }}>
+            {statusCounts.pending}
+          </span>
+          <span className={`text-[10px] mt-0.5 block ${statusFilter === "PENDING_GROUP" ? "text-white/80" : "text-gray-500"}`}>
+            Prontos para faturar
+          </span>
+        </button>
 
-                    {/* Channel */}
-                    <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0F4] text-[#9C5B6F] border border-[#E9D9CD]">
-                        {order.channel.replace('_', ' ')}
+        {/* Card: Em Separação / Montagem */}
+        <button
+          onClick={() => setStatusFilter("SEPARATION_GROUP")}
+          className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
+            statusFilter === "SEPARATION_GROUP"
+              ? "bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]"
+              : "bg-white hover:bg-amber-50/50 text-[#39313A] border-[#E9D9CD]"
+          }`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === "SEPARATION_GROUP" ? "text-white/80" : "text-amber-600"}`}>
+            Em Separação
+          </span>
+          <span className="text-2xl font-extrabold mt-1 block tracking-tight text-amber-700" style={{ color: statusFilter === "SEPARATION_GROUP" ? "#fff" : undefined }}>
+            {statusCounts.separation}
+          </span>
+          <span className={`text-[10px] mt-0.5 block ${statusFilter === "SEPARATION_GROUP" ? "text-white/80" : "text-gray-500"}`}>
+            Na bancada de montagem
+          </span>
+        </button>
+
+        {/* Card: Enviados / Concluídos */}
+        <button
+          onClick={() => setStatusFilter("SHIPPED_GROUP")}
+          className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
+            statusFilter === "SHIPPED_GROUP"
+              ? "bg-emerald-700 text-white border-emerald-700 shadow-md scale-[1.02]"
+              : "bg-white hover:bg-emerald-50/50 text-[#39313A] border-[#E9D9CD]"
+          }`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === "SHIPPED_GROUP" ? "text-white/80" : "text-emerald-700"}`}>
+            Enviados / Concluídos
+          </span>
+          <span className="text-2xl font-extrabold mt-1 block tracking-tight text-emerald-700" style={{ color: statusFilter === "SHIPPED_GROUP" ? "#fff" : undefined }}>
+            {statusCounts.shipped}
+          </span>
+          <span className={`text-[10px] mt-0.5 block ${statusFilter === "SHIPPED_GROUP" ? "text-white/80" : "text-gray-500"}`}>
+            Despachados / Entregues
+          </span>
+        </button>
+
+        {/* Card: Devoluções / Cancelados */}
+        <button
+          onClick={() => setStatusFilter("REFUND_GROUP")}
+          className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer col-span-2 sm:col-span-1 ${
+            statusFilter === "REFUND_GROUP"
+              ? "bg-rose-700 text-white border-rose-700 shadow-md scale-[1.02]"
+              : "bg-white hover:bg-rose-50/50 text-[#39313A] border-[#E9D9CD]"
+          }`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === "REFUND_GROUP" ? "text-white/80" : "text-rose-600"}`}>
+            Devoluções / Cancelados
+          </span>
+          <span className="text-2xl font-extrabold mt-1 block tracking-tight text-rose-700" style={{ color: statusFilter === "REFUND_GROUP" ? "#fff" : undefined }}>
+            {statusCounts.refunded}
+          </span>
+          <span className={`text-[10px] mt-0.5 block ${statusFilter === "REFUND_GROUP" ? "text-white/80" : "text-gray-500"}`}>
+            Estornados no DRE
+          </span>
+        </button>
+
+      </div>
+
+      {/* 2. BARRA DE FILTROS & AÇÕES RÁPIDAS MODERNA */}
+      <div className="bg-white p-4 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-3.5">
+        
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          
+          {/* Campo de Busca Expandido com atalho '/' */}
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              id="order-search-input"
+              type="text"
+              placeholder="Buscar Nº do Pedido, Cliente, WhatsApp ou E-mail..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-12 py-2 text-xs bg-[#FAF7F8] rounded-2xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold"
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-gray-400 bg-white border border-[#E9D9CD] px-1.5 py-0.5 rounded-md shadow-2xs">
+              /
+            </kbd>
+          </div>
+
+          {/* Seletor de Período Rápido */}
+          <div className="flex items-center gap-1 bg-[#FAF7F8] p-1 rounded-2xl border border-[#E9D9CD] self-stretch md:self-auto justify-center">
+            <span className="text-[10px] font-bold text-gray-400 px-2 uppercase">Período:</span>
+            {(
+              [
+                { id: "all", label: "Tudo" },
+                { id: "today", label: "Hoje" },
+                { id: "week", label: "7 Dias" },
+                { id: "month", label: "30 Dias" },
+              ] as { id: PeriodFilterType; label: string }[]
+            ).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPeriodFilter(p.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  periodFilter === p.id
+                    ? "bg-[#7A3F51] text-white shadow-sm"
+                    : "text-gray-600 hover:text-[#7A3F51]"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+        </div>
+
+        {/* Pílulas de Seleção por Canal de Venda */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 border-t border-[#E9D9CD]/50">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+            <Filter className="w-3 h-3 text-[#C69A76]" />
+            Canais:
+          </span>
+          
+          <button
+            onClick={() => setChannelFilter("ALL")}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+              channelFilter === "ALL"
+                ? "bg-[#7A3F51] text-white shadow-sm"
+                : "bg-[#FAF7F8] text-gray-600 border border-[#E9D9CD] hover:bg-white"
+            }`}
+          >
+            Todos os Canais
+          </button>
+
+          {(
+            [
+              { code: "SITE", label: "Loja Virtual (Site)", icon: "site" },
+              { code: "INSTAGRAM", label: "Instagram", icon: "instagram" },
+              { code: "MERCADO_LIVRE", label: "Mercado Livre", icon: "mercadolivre" },
+              { code: "SHOPEE", label: "Shopee", icon: "shopee" },
+              { code: "WHATSAPP", label: "WhatsApp VIP", icon: "whatsapp" },
+            ] as { code: ChannelType; label: string; icon: string }[]
+          ).map((c) => (
+            <button
+              key={c.code}
+              onClick={() => setChannelFilter(c.code)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                channelFilter === c.code
+                  ? "bg-[#9C5B6F] text-white shadow-sm"
+                  : "bg-[#FAF7F8] text-gray-700 border border-[#E9D9CD] hover:bg-white"
+              }`}
+            >
+              <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+
+      </div>
+
+      {/* 3. TABELA DE PEDIDOS COM VISUAL DE ROW-CARDS */}
+      <div className="space-y-3">
+        {filteredOrders.length === 0 ? (
+          /* Empty State Elegante */
+          <div className="bg-white rounded-3xl border border-[#E9D9CD] p-12 text-center shadow-sm space-y-3 animate-in fade-in">
+            <div className="w-14 h-14 rounded-full bg-[#FAF0F4] text-[#9C5B6F] flex items-center justify-center mx-auto border border-[#E9D9CD]">
+              <Search className="w-6 h-6 text-[#9C5B6F]" />
+            </div>
+            <h3 className="font-serif text-lg font-bold text-[#39313A]">
+              Nenhum pedido encontrado
+            </h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              Não encontramos pedidos para os filtros selecionados ou o termo pesquisado.
+            </p>
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("ALL");
+                setChannelFilter("ALL");
+                setPeriodFilter("all");
+              }}
+              className="px-4 py-2 bg-[#7A3F51] text-white text-xs font-bold rounded-full shadow-sm hover:bg-[#5E303E] transition-all cursor-pointer"
+            >
+              Limpar Todos os Filtros
+            </button>
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const isRefunded = order.status === "DEVOLUCAO" || order.status === "CANCELADO";
+            const firstItem = order.items[0];
+            const matchedProduct = products.find((p) => p.id === firstItem?.productId || p.sku === firstItem?.sku);
+            const totalUnits = order.items.reduce((sum, it) => sum + it.quantity, 0);
+
+            return (
+              <div
+                key={order.id}
+                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${
+                  isRefunded ? "border-rose-200 bg-rose-50/20" : "border-[#E9D9CD]"
+                }`}
+              >
+                
+                {/* Coluna 1: Pedido & Canal */}
+                <div className="min-w-[190px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-extrabold text-[#7A3F51] text-sm">
+                      {order.orderNumber}
+                    </span>
+                    {renderChannelBadge(order.channel)}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+                    <span>{formatDate(order.createdAt)}</span>
+                  </div>
+                </div>
+
+                {/* Coluna 2: Cliente & WhatsApp */}
+                <div className="min-w-[180px]">
+                  <span className="font-bold text-[#39313A] text-xs block">
+                    {order.customerName}
+                  </span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] text-gray-500 font-mono">
+                      {order.customerPhone}
+                    </span>
+                    <a
+                      href={getWhatsAppLink(order.customerPhone, order.customerName, order.orderNumber, order.status)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      title="Enviar mensagem no WhatsApp com status do pedido"
+                    >
+                      <MessageCircle className="w-3 h-3 text-emerald-600" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Coluna 3: Resumo dos Produtos com Miniatura */}
+                <div className="flex items-center gap-3 min-w-[240px] flex-1">
+                  <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#FAF7F8] border border-[#E9D9CD] shrink-0 relative">
+                    <Image
+                      src={matchedProduct?.images?.[0] || "/logo.jpg"}
+                      alt={firstItem?.productName || "Produto"}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="text-xs">
+                    <div className="font-semibold text-[#39313A] line-clamp-1">
+                      {firstItem?.productName}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] font-bold text-[#9C5B6F] bg-[#FAF0F4] px-1.5 py-0.2 rounded border border-[#E9D9CD]">
+                        {totalUnits} un{totalUnits > 1 ? "s" : ""}
                       </span>
-                    </td>
-
-                    {/* Customer */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[#39313A]">{order.customerName}</div>
-                      <div className="text-[10px] text-gray-400">{order.customerPhone}</div>
-                    </td>
-
-                    {/* Items */}
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-[#39313A]">{totalItems} un</span>
-                      <div className="text-[10px] text-gray-500 line-clamp-1">
-                        {order.items.map(i => i.productName).join(', ')}
-                      </div>
-                    </td>
-
-                    {/* Total Amount (Crossed out in the middle if DEVOLUCAO or CANCELADO) */}
-                    <td className="py-3.5 px-4">
-                      <div
-                        className={`font-extrabold text-sm ${
-                          isRefundedOrCancelled
-                            ? "line-through decoration-2 decoration-red-600 text-red-600"
-                            : "text-[#39313A]"
-                        }`}
-                      >
-                        {formatCurrency(order.totalAmount)}
-                      </div>
-                      {isRefundedOrCancelled && (
-                        <span className="inline-block text-[9px] font-bold text-red-600 uppercase tracking-tight">
-                          Estornado do Financeiro
+                      {firstItem?.variationName && (
+                        <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                          {firstItem.variationName}
                         </span>
                       )}
-                    </td>
+                    </div>
+                  </div>
+                </div>
 
-                    {/* Status with Quick Toggle (RED Tag for DEVOLUCAO and CANCELADO) */}
-                    <td className="py-3.5 px-4">
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border focus:outline-none cursor-pointer transition-colors ${
-                          order.status === 'DEVOLUCAO' || order.status === 'CANCELADO'
-                            ? 'bg-red-100 text-red-700 border-red-300 shadow-sm'
-                            : order.status === 'CONCLUIDO' 
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
-                            : order.status === 'ENVIADO'
-                            ? 'bg-blue-100 text-blue-800 border-blue-300'
-                            : order.status === 'SEPARACAO'
-                            ? 'bg-amber-100 text-amber-800 border-amber-300'
-                            : 'bg-purple-100 text-purple-800 border-purple-300'
-                        }`}
-                      >
-                        <option value="PENDENTE">PENDENTE</option>
-                        <option value="PAGO">PAGO</option>
-                        <option value="SEPARACAO">EM SEPARAÇÃO</option>
-                        <option value="ENVIADO">ENVIADO</option>
-                        <option value="CONCLUIDO">CONCLUÍDO</option>
-                        <option value="DEVOLUCAO">DEVOLUÇÃO</option>
-                        <option value="CANCELADO">CANCELADO</option>
-                      </select>
-                    </td>
+                {/* Coluna 4: Total & Meio de Pagamento */}
+                <div className="min-w-[130px] text-left lg:text-right">
+                  <div className={`text-base font-extrabold ${
+                    isRefunded ? "line-through decoration-2 decoration-rose-600 text-rose-600" : "text-[#7A3F51]"
+                  }`}>
+                    {formatCurrency(order.totalAmount)}
+                  </div>
+                  <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
+                    {order.paymentMethod}
+                  </span>
+                  {isRefunded && (
+                    <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tight block">
+                      Estornado do DRE
+                    </span>
+                  )}
+                </div>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setViewingOrder(order)}
-                        className="p-1.5 text-gray-500 hover:text-[#9C5B6F] hover:bg-[#F5DDE5] rounded-lg transition-colors"
-                        title="Ver Detalhes do Pedido"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
+                {/* Coluna 5: Status Interativo e Detalhes */}
+                <div className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50">
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
+                    className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
+                      isRefunded
+                        ? "bg-rose-100 text-rose-800 border-rose-300"
+                        : order.status === "CONCLUIDO"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : order.status === "ENVIADO"
+                        ? "bg-blue-100 text-blue-800 border-blue-300"
+                        : order.status === "SEPARACAO"
+                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : "bg-purple-100 text-purple-800 border-purple-300"
+                    }`}
+                  >
+                    <option value="PENDENTE">PENDENTE</option>
+                    <option value="PAGO">PAGO</option>
+                    <option value="SEPARACAO">EM SEPARAÇÃO</option>
+                    <option value="ENVIADO">ENVIADO</option>
+                    <option value="CONCLUIDO">CONCLUÍDO</option>
+                    <option value="DEVOLUCAO">DEVOLUÇÃO</option>
+                    <option value="CANCELADO">CANCELADO</option>
+                  </select>
 
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  <button
+                    onClick={() => setViewingOrder(order)}
+                    className="p-2 text-[#7A3F51] hover:bg-[#FAF0F4] border border-[#E9D9CD] rounded-xl transition-all cursor-pointer shadow-2xs"
+                    title="Ver Ficha Completa do Pedido"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* AUTOMATIC STOCK RETURN & REFUND MODAL */}
-      {refundModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 relative shadow-2xl border-2 border-red-200 space-y-5">
+      {/* 4. MODAL DE DETALHES DO PEDIDO EXPANDIDO (FICHA DE EXPEDIÇÃO & ROMANEIO) */}
+      {viewingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 relative shadow-2xl border border-[#E9D9CD] max-h-[92vh] overflow-y-auto space-y-5">
             
-            <div className="flex items-start justify-between border-b border-red-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                  <RotateCcw className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 text-[10px] font-extrabold uppercase tracking-wider">
-                    {refundModalOrder.newStatus === "DEVOLUCAO"
-                      ? "DEVOLUÇÃO PROCESSADA"
-                      : "PEDIDO CANCELADO"}
+            {/* Header com Status e Impressão */}
+            <div className="flex items-start justify-between pb-4 border-b border-[#E9D9CD]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-extrabold text-xl text-[#7A3F51]">
+                    {viewingOrder.orderNumber}
                   </span>
-                  <h3 className="font-display text-lg font-extrabold text-[#39313A] mt-1">
-                    Estoque Devolvido & Valor Estornado
-                  </h3>
+                  {renderChannelBadge(viewingOrder.channel)}
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Registrado em {formatDate(viewingOrder.createdAt)}
+                </p>
               </div>
-              <button
-                onClick={() => setRefundModalOrder(null)}
-                className="p-1 rounded-full hover:bg-gray-100 text-gray-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrintPackingSlip}
+                  className="px-3 py-1.5 bg-[#FAF7F8] hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Imprimir Ficha de Separação"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir Ficha</span>
+                </button>
+                <button
+                  onClick={() => setViewingOrder(null)}
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <p className="text-[#39313A]/80 leading-relaxed">
-                O pedido <strong>{refundModalOrder.order.orderNumber}</strong> de{" "}
-                <strong>{refundModalOrder.order.customerName}</strong> foi marcado como{" "}
-                <strong className="text-red-700">
-                  {refundModalOrder.newStatus === "DEVOLUCAO" ? "DEVOLUÇÃO" : "CANCELADO"}
-                </strong>
-                . As seguintes ações automáticas foram executadas:
-              </p>
-
-              {/* 1. Stock Returned Box */}
-              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
-                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <PackageCheck className="w-4 h-4 text-emerald-700" />
-                  <span>1. Quantidade Devolvida ao Estoque Central:</span>
-                </div>
-                <div className="space-y-1.5 pl-1">
-                  {refundModalOrder.order.items.map((it, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-xl border border-emerald-100">
-                      <div>
-                        <span className="font-bold text-[#39313A]">{it.productName}</span>
-                        {it.variationName && (
-                          <span className="text-gray-500 ml-1">({it.variationName})</span>
-                        )}
+            {/* Timeline Visual do Pedido */}
+            <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD]">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
+                Linha do Tempo da Expedição
+              </span>
+              <div className="flex items-center justify-between text-xs">
+                {(
+                  [
+                    { label: "Criado", active: true },
+                    { label: "Pago", active: viewingOrder.status !== "PENDENTE" },
+                    { label: "Separação", active: ["SEPARACAO", "ENVIADO", "CONCLUIDO"].includes(viewingOrder.status) },
+                    { label: "Enviado", active: ["ENVIADO", "CONCLUIDO"].includes(viewingOrder.status) },
+                    { label: "Entregue", active: viewingOrder.status === "CONCLUIDO" },
+                  ]
+                ).map((step, idx, arr) => (
+                  <div key={idx} className="flex-1 flex items-center">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        step.active ? "bg-[#7A3F51] text-white" : "bg-gray-200 text-gray-500"
+                      }`}>
+                        {idx + 1}
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
-                        +{it.quantity} un. de volta ao estoque
+                      <span className={`text-[10px] mt-1 font-bold ${step.active ? "text-[#7A3F51]" : "text-gray-400"}`}>
+                        {step.label}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. Money Refunded & Deducted from Finance Box */}
-              <div className="p-4 rounded-2xl bg-red-50/70 border border-red-200 flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="font-bold text-red-900 flex items-center gap-1.5">
-                    <DollarSign className="w-4 h-4 text-red-700" />
-                    <span>2. Dinheiro Devolvido & Removido do Financeiro:</span>
+                    {idx < arr.length - 1 && (
+                      <div className={`flex-1 h-1 mx-2 rounded-full ${
+                        arr[idx + 1].active ? "bg-[#7A3F51]" : "bg-gray-200"
+                      }`} />
+                    )}
                   </div>
-                  <p className="text-[11px] text-red-700/80">
-                    Valor subtraído automaticamente do Faturamento e DRE.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-extrabold line-through decoration-2 decoration-red-600 text-red-600 block">
-                    {formatCurrency(refundModalOrder.order.totalAmount)}
-                  </span>
-                  <span className="text-[10px] font-bold text-red-700 uppercase">
-                    Reembolsado
-                  </span>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-gray-100">
-              <button
-                onClick={() => setRefundModalOrder(null)}
-                className="px-6 py-2.5 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-xs font-bold shadow-md flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Entendido</span>
-              </button>
+            {/* Dados do Cliente e Endereço de Entrega */}
+            <div className="bg-white p-4 rounded-2xl border border-[#E9D9CD] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#7A3F51] flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-[#9C5B6F]" />
+                  <span>Destinatário & Endereço de Entrega</span>
+                </span>
+                <button
+                  onClick={() => handleCopyAddress(viewingOrder.shippingAddress)}
+                  className="px-2.5 py-1 bg-[#FAF7F8] text-[#7A3F51] hover:bg-[#FAF0F4] border border-[#E9D9CD] rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedAddress ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedAddress ? "Copiado!" : "Copiar Endereço"}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-400 text-[10px] block">Nome do Cliente</span>
+                  <span className="font-bold text-[#39313A]">{viewingOrder.customerName}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 text-[10px] block">Contato</span>
+                  <span className="font-mono text-gray-700">{viewingOrder.customerPhone} • {viewingOrder.customerEmail}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-gray-400 text-[10px] block">Endereço Completo</span>
+                  <span className="font-semibold text-gray-800">{viewingOrder.shippingAddress}</span>
+                </div>
+              </div>
+
+              {viewingOrder.trackingCode && (
+                <div className="pt-2 border-t border-[#E9D9CD]/50 flex items-center justify-between">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">Código de Rastreamento</span>
+                    <span className="font-mono font-bold text-[#7A3F51]">{viewingOrder.trackingCode}</span>
+                  </div>
+                  <button
+                    onClick={() => handleCopyTracking(viewingOrder.trackingCode!)}
+                    className="px-2.5 py-1 bg-white text-[#7A3F51] border border-[#E9D9CD] rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedTracking ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedTracking ? "Rastreio Copiado!" : "Copiar Rastreio"}</span>
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Lista dos Itens do Pedido */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500 block">
+                Itens para Separação
+              </span>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {viewingOrder.items.map((it, idx) => {
+                  const prod = products.find((p) => p.id === it.productId || p.sku === it.sku);
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-[#E9D9CD] bg-[#FAF7F8]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-white border border-[#E9D9CD] shrink-0 relative">
+                          <Image
+                            src={prod?.images?.[0] || "/logo.jpg"}
+                            alt={it.productName}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="text-xs">
+                          <div className="font-bold text-[#39313A]">{it.productName}</div>
+                          {it.variationName && (
+                            <div className="text-[10px] text-[#9C5B6F] font-semibold">{it.variationName}</div>
+                          )}
+                          <div className="text-[10px] font-mono text-gray-400">SKU: {it.sku}</div>
+                        </div>
+                      </div>
+                      <div className="text-right text-xs">
+                        <span className="font-extrabold text-[#7A3F51]">{formatCurrency(it.price * it.quantity)}</span>
+                        <div className="text-[10px] text-gray-500">{it.quantity}x {formatCurrency(it.price)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Total e Breakdown Contábil */}
+            {(() => {
+              const channelInfo = channels.find((c: any) => c.code === viewingOrder.channel);
+              const feePct = channelInfo ? channelInfo.feePercentage : 0;
+              const estFee = viewingOrder.totalAmount * (feePct / 100);
+              
+              let orderCmv = 0;
+              viewingOrder.items.forEach((it) => {
+                const prod = products.find((p: any) => p.id === it.productId || p.sku === it.sku);
+                const cost = prod && typeof prod.costPrice === "number" ? prod.costPrice : it.price * 0.38;
+                orderCmv += cost * it.quantity;
+              });
+
+              const orderGrossMargin = viewingOrder.totalAmount - estFee - orderCmv;
+
+              return (
+                <div className="p-4 rounded-2xl bg-[#FAF0F4]/40 border border-[#E9D9CD] space-y-3 text-xs">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-gray-400 text-[10px] block">Forma de Pagamento</span>
+                      <span className="font-bold text-[#39313A]">{viewingOrder.paymentMethod}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-gray-400 text-[10px] block">Valor Total do Pedido</span>
+                      <span className={`text-xl font-extrabold ${
+                        viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
+                          ? "line-through text-rose-600"
+                          : "text-[#7A3F51]"
+                      }`}>
+                        {formatCurrency(viewingOrder.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-[#E9D9CD] text-center text-[10px]">
+                    <div>
+                      <span className="text-gray-400 block">CMV (Custo Make)</span>
+                      <span className="font-bold text-gray-700">{formatCurrency(orderCmv)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block">Comissão ({feePct}%)</span>
+                      <span className="font-bold text-rose-600">-{formatCurrency(estFee)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block">Margem Líquida</span>
+                      <span className={`font-extrabold ${orderGrossMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                        {formatCurrency(orderGrossMargin)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
           </div>
         </div>
       )}
 
-      {/* ORDER DETAILS MODAL */}
-      {viewingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 relative shadow-2xl border border-[#E9D9CD]">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E9D9CD]">
+      {/* 5. MODAL DE ESTORNO TRANSPARENTE E EDUCATIVO */}
+      {refundModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 relative shadow-2xl border-2 border-rose-300 space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-rose-100">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#C69A76]">
-                    {viewingOrder.channel.replace('_', ' ')}
-                  </span>
-                  {(viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO") && (
-                    <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 text-[9px] font-extrabold uppercase">
-                      {viewingOrder.status === "DEVOLUCAO" ? "DEVOLUÇÃO" : "CANCELADO"}
-                    </span>
-                  )}
-                </div>
-                <h3 className="font-display text-xl font-bold text-[#39313A]">
-                  Pedido {viewingOrder.orderNumber}
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-100 text-rose-800 uppercase tracking-wider">
+                  {refundModalOrder.newStatus === "DEVOLUCAO" ? "Devolução Confirmada" : "Cancelamento Confirmado"}
+                </span>
+                <h3 className="font-serif text-base font-bold text-[#39313A] mt-0.5">
+                  Estorno & Retorno ao Estoque
                 </h3>
               </div>
-              <button 
-                onClick={() => setViewingOrder(null)}
-                className="p-1 rounded-full hover:bg-gray-100 text-gray-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            <div className="space-y-4 pt-4 text-xs">
-              
-              {/* Customer info */}
-              <div className="bg-[#FAF7F8] p-3.5 rounded-2xl border border-[#E9D9CD]/70 space-y-1">
-                <div className="font-bold text-[#39313A]">{viewingOrder.customerName}</div>
-                <div className="text-gray-500">{viewingOrder.customerEmail} • {viewingOrder.customerPhone}</div>
-                <div className="text-gray-600 text-[11px] pt-1">
-                  <strong>Entrega:</strong> {viewingOrder.shippingAddress}
-                </div>
-                {viewingOrder.trackingCode && (
-                  <div className="text-[#9C5B6F] font-mono font-bold text-[11px] pt-1">
-                    Rastreio: {viewingOrder.trackingCode}
-                  </div>
-                )}
-              </div>
+            <div className="space-y-3 text-xs text-gray-700">
+              <p>
+                O pedido <strong>#{refundModalOrder.order.orderNumber}</strong> foi atualizado para{" "}
+                <span className="font-bold text-rose-700">{refundModalOrder.newStatus}</span>.
+              </p>
 
-              {/* Items Breakdown */}
-              <div>
-                <h4 className="font-bold text-[#39313A] mb-2 uppercase text-[10px] tracking-wider">
-                  Itens do Pedido
-                </h4>
-                <div className="space-y-2">
-                  {viewingOrder.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl border border-[#E9D9CD] bg-white">
-                      <div>
-                        <div className="font-semibold text-[#39313A]">{it.productName}</div>
-                        {it.variationName && (
-                          <div className="text-[10px] text-[#9C5B6F]">{it.variationName}</div>
-                        )}
-                        <div className="text-[10px] text-gray-400 font-mono">SKU: {it.sku}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`font-bold ${
-                          viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
-                            ? "line-through text-red-600"
-                            : "text-[#39313A]"
-                        }`}>
-                          {formatCurrency(it.price * it.quantity)}
-                        </div>
-                        <div className="text-[10px] text-gray-500">{it.quantity}x {formatCurrency(it.price)}</div>
-                      </div>
-                    </div>
-                  ))}
+              <div className="bg-rose-50/70 p-3.5 rounded-2xl border border-rose-200 space-y-1.5">
+                <div className="flex justify-between font-bold">
+                  <span>Itens retornados ao estoque físico:</span>
+                  <span className="text-emerald-700">
+                    +{refundModalOrder.order.items.reduce((sum, it) => sum + it.quantity, 0)} unidades
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Valor abatido do Faturamento/DRE:</span>
+                  <span className="text-rose-600 line-through">
+                    {formatCurrency(refundModalOrder.order.totalAmount)}
+                  </span>
                 </div>
               </div>
 
-              {/* Payment & Total */}
-              {(() => {
-                const channelInfo = channels.find((c: any) => c.code === viewingOrder.channel);
-                const feePct = channelInfo ? channelInfo.feePercentage : 0;
-                const estFee = viewingOrder.totalAmount * (feePct / 100);
-                
-                let orderCmv = 0;
-                viewingOrder.items.forEach((it) => {
-                  const prod = products.find((p: any) => p.id === it.productId || p.sku === it.sku);
-                  const cost = prod && typeof prod.costPrice === "number" ? prod.costPrice : it.price * 0.38;
-                  orderCmv += cost * it.quantity;
-                });
+              <p className="text-[11px] text-gray-500">
+                O Kardex foi atualizado com a movimentação de estorno e o saldo financeiro agora reflete os valores reais no DRE.
+              </p>
+            </div>
 
-                const orderGrossMargin = viewingOrder.totalAmount - estFee - orderCmv;
-
-                return (
-                  <div className="pt-2 border-t border-[#E9D9CD] space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] text-gray-500 block">Forma de Pagamento</span>
-                        <span className="font-semibold text-[#39313A]">{viewingOrder.paymentMethod}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-gray-500 block">Total do Pedido</span>
-                        <span className={`text-xl font-extrabold ${
-                          viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
-                            ? "line-through decoration-2 decoration-red-600 text-red-600"
-                            : "text-[#7A3F51]"
-                        }`}>
-                          {formatCurrency(viewingOrder.totalAmount)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Breakdown contábil do pedido */}
-                    <div className="bg-[#FAF7F8] p-2.5 rounded-xl border border-[#E9D9CD] grid grid-cols-3 gap-2 text-center text-[10px]">
-                      <div>
-                        <span className="text-gray-500 block">CMV (Custo SKUs)</span>
-                        <span className="font-bold text-gray-700">{formatCurrency(orderCmv)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">Comissão ({feePct}%)</span>
-                        <span className="font-bold text-rose-600">-{formatCurrency(estFee)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">Margem de Contribuição</span>
-                        <span className={`font-bold ${orderGrossMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                          {formatCurrency(orderGrossMargin)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
+            <div className="flex justify-end pt-3 border-t border-gray-100">
+              <button
+                onClick={() => setRefundModalOrder(null)}
+                className="px-5 py-2 rounded-full bg-[#7A3F51] text-white text-xs font-bold hover:bg-[#5E303E] transition-all shadow-md cursor-pointer"
+              >
+                Entendido / Concluir
+              </button>
             </div>
           </div>
         </div>

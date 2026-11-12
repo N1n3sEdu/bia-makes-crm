@@ -288,6 +288,15 @@ export const initialStockMovements: StockMovement[] = [
   }
 ];
 
+// Função auxiliar para manter os dados de demonstração sempre atualizados em relação à data atual
+export const getRelativeDateIso = (daysAgo: number, timeStr: string = "12:00"): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const parts = timeStr.split(":").map(Number);
+  d.setHours(parts[0] || 12, parts[1] || 0, 0, 0);
+  return d.toISOString();
+};
+
 export const initialOrders: Order[] = [
   {
     id: "ord-1001",
@@ -320,7 +329,7 @@ export const initialOrders: Order[] = [
     paymentMethod: "Mercado Pago (Cartão)",
     shippingAddress: "Rua Oscar Freire, 1200 - Jardins, São Paulo/SP",
     trackingCode: "MLBR9920182BR",
-    createdAt: "2026-11-10T09:15:00Z"
+    createdAt: getRelativeDateIso(0, "09:15")
   },
   {
     id: "ord-1002",
@@ -345,7 +354,7 @@ export const initialOrders: Order[] = [
     paymentMethod: "ShopeePay (PIX)",
     shippingAddress: "Av. Atlântica, 450 - Copacabana, Rio de Janeiro/RJ",
     trackingCode: "SHP77281920BR",
-    createdAt: "2026-11-09T18:30:00Z"
+    createdAt: getRelativeDateIso(1, "18:30")
   },
   {
     id: "ord-1003",
@@ -377,7 +386,7 @@ export const initialOrders: Order[] = [
     status: "PAGO",
     paymentMethod: "PIX Direto (Site Bia Makes)",
     shippingAddress: "Rua da Bahia, 1850 - Lourdes, Belo Horizonte/MG",
-    createdAt: "2026-11-10T11:40:00Z"
+    createdAt: getRelativeDateIso(0, "11:40")
   },
   {
     id: "ord-1004",
@@ -402,7 +411,7 @@ export const initialOrders: Order[] = [
     paymentMethod: "TikTok Shop Pay",
     shippingAddress: "Rua XV de Novembro, 890 - Centro, Curitiba/PR",
     trackingCode: "TTK4481029BR",
-    createdAt: "2026-11-07T14:20:00Z"
+    createdAt: getRelativeDateIso(2, "14:20")
   },
   {
     id: "ord-1005",
@@ -435,7 +444,7 @@ export const initialOrders: Order[] = [
     paymentMethod: "Instagram Direct / PIX",
     shippingAddress: "Alameda Santos, 1400 - Cerqueira César, São Paulo/SP",
     trackingCode: "IGBR8892102BR",
-    createdAt: "2026-11-10T14:15:00Z"
+    createdAt: getRelativeDateIso(0, "14:15")
   },
   {
     id: "ord-1006",
@@ -459,7 +468,7 @@ export const initialOrders: Order[] = [
     status: "SEPARACAO",
     paymentMethod: "Facebook Marketplace / Cartão",
     shippingAddress: "Rua Barata Ribeiro, 300 - Copacabana, Rio de Janeiro/RJ",
-    createdAt: "2026-11-10T12:05:00Z"
+    createdAt: getRelativeDateIso(1, "12:05")
   },
   {
     id: "ord-1007",
@@ -483,7 +492,7 @@ export const initialOrders: Order[] = [
     status: "PAGO",
     paymentMethod: "WhatsApp Pay / PIX",
     shippingAddress: "Av. Brasil, 750 - Jardim Brasil, Campinas/SP",
-    createdAt: "2026-11-10T13:45:00Z"
+    createdAt: getRelativeDateIso(0, "13:45")
   }
 ];
 

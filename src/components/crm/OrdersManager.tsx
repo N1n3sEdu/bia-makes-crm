@@ -28,7 +28,7 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { Order, OrderStatus, ChannelType } from "@/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, resolveOrderCompanyShippingCost } from "@/lib/utils";
 
 interface OrdersManagerProps {
   orders: Order[];
@@ -452,19 +452,27 @@ export function OrdersManager({
             const firstItem = order.items[0];
             const matchedProduct = products.find((p) => p.id === firstItem?.productId || p.sku === firstItem?.sku);
             const totalUnits = order.items.reduce((sum, it) => sum + it.quantity, 0);
+            const customerShip = typeof order.shippingAmount === "number" ? order.shippingAmount : 0;
+            const companyShip = resolveOrderCompanyShippingCost(order);
+            const isFreeForCustomer = customerShip === 0 || Boolean(order.isFreeShippingSubsidized);
+            const cepMatch = order.shippingAddress?.match(/\d{5}-\d{3}/)?.[0];
+            const displayCep = order.shippingCep || cepMatch;
+            const carrierLabel = order.shippingCarrier || "Correios PAC";
 
             return (
               <div
                 key={order.id}
-                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 ${
+                onClick={() => setViewingOrder(order)}
+                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-200 hover:shadow-md hover:border-[#9C5B6F] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 cursor-pointer group ${
                   isRefunded ? "border-rose-200 bg-rose-50/20" : "border-[#E9D9CD]"
                 }`}
+                title="Clique em qualquer parte do pedido para abrir a ficha completa"
               >
                 
                 {/* Coluna 1: Pedido & Canal */}
                 <div className="min-w-[190px]">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-extrabold text-[#7A3F51] text-sm">
+                    <span className="font-mono font-extrabold text-[#7A3F51] text-sm group-hover:text-[#9C5B6F] transition-colors">
                       {order.orderNumber}
                     </span>
                     {renderChannelBadge(order.channel)}
@@ -477,7 +485,7 @@ export function OrdersManager({
 
                 {/* Coluna 2: Cliente & WhatsApp */}
                 <div className="min-w-[180px]">
-                  <span className="font-bold text-[#39313A] text-xs block">
+                  <span className="font-bold text-[#39313A] text-xs block group-hover:text-[#7A3F51] transition-colors">
                     {order.customerName}
                   </span>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -488,7 +496,8 @@ export function OrdersManager({
                       href={getWhatsAppLink(order.customerPhone, order.customerName, order.orderNumber, order.status)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
                       title="Enviar mensagem no WhatsApp com status do pedido"
                     >
                       <MessageCircle className="w-3 h-3 text-emerald-600" />
@@ -523,7 +532,36 @@ export function OrdersManager({
                   </div>
                 </div>
 
-                {/* Coluna 4: Total & Meio de Pagamento */}
+                {/* Coluna 4: Frete / Logística da Encomenda */}
+                <div className="min-w-[190px] text-left space-y-1">
+                  <div className="text-[11px] font-bold text-[#39313A] flex items-center gap-1 flex-wrap">
+                    <span>📦 {carrierLabel}</span>
+                    {displayCep && (
+                      <span className="font-mono text-[10px] text-gray-500">· {displayCep}</span>
+                    )}
+                  </div>
+                  {isFreeForCustomer ? (
+                    <div className="space-y-0.5">
+                      <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                        Cliente: Grátis
+                      </span>
+                      <div className="text-[11px] font-extrabold text-rose-700">
+                        Custo Frete Loja: -{formatCurrency(companyShip)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] space-y-0.5">
+                      <div className="text-gray-600 font-semibold">
+                        Cliente pagou: {formatCurrency(customerShip)}
+                      </div>
+                      <div className="font-bold text-rose-700">
+                        Custo Transportadora: -{formatCurrency(companyShip)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coluna 5: Total & Meio de Pagamento */}
                 <div className="min-w-[130px] text-left lg:text-right">
                   <div className={`text-base font-extrabold ${
                     isRefunded ? "line-through decoration-2 decoration-rose-600 text-rose-600" : "text-[#7A3F51]"
@@ -541,10 +579,17 @@ export function OrdersManager({
                 </div>
 
                 {/* Coluna 5: Status Interativo e Detalhes */}
-                <div className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50">
+                <div 
+                  onClick={(e) => e.stopPropagation()} 
+                  className="flex items-center gap-2 self-stretch lg:self-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-[#E9D9CD]/50"
+                >
                   <select
                     value={order.status}
-                    onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleStatusChange(order, e.target.value as OrderStatus);
+                    }}
                     className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border focus:outline-none cursor-pointer transition-colors shadow-2xs ${
                       isRefunded
                         ? "bg-rose-100 text-rose-800 border-rose-300"
@@ -567,8 +612,12 @@ export function OrdersManager({
                   </select>
 
                   <button
-                    onClick={() => setViewingOrder(order)}
-                    className="p-2 text-[#7A3F51] hover:bg-[#FAF0F4] border border-[#E9D9CD] rounded-xl transition-all cursor-pointer shadow-2xs"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewingOrder(order);
+                    }}
+                    className="p-2 text-[#7A3F51] hover:bg-[#FAF0F4] border border-[#E9D9CD] rounded-xl transition-all cursor-pointer shadow-2xs group-hover:bg-[#FAF0F4] group-hover:border-[#9C5B6F]"
                     title="Ver Ficha Completa do Pedido"
                   >
                     <Eye className="w-4 h-4" />
@@ -584,10 +633,10 @@ export function OrdersManager({
       {/* 4. MODAL DE DETALHES DO PEDIDO EXPANDIDO (FICHA DE EXPEDIÇÃO & ROMANEIO) */}
       {viewingOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 relative shadow-2xl border border-[#E9D9CD] max-h-[92vh] overflow-y-auto space-y-5">
+          <div className="bg-white rounded-3xl max-w-2xl w-full relative shadow-2xl border border-[#E9D9CD] max-h-[92vh] flex flex-col overflow-hidden">
             
-            {/* Header com Status e Impressão */}
-            <div className="flex items-start justify-between pb-4 border-b border-[#E9D9CD]">
+            {/* Header Fixo com Status e Impressão */}
+            <div className="flex items-start justify-between p-6 sm:px-7 pb-4 border-b border-[#E9D9CD] bg-white shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-extrabold text-xl text-[#7A3F51]">
@@ -602,6 +651,7 @@ export function OrdersManager({
               
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handlePrintPackingSlip}
                   className="px-3 py-1.5 bg-[#FAF7F8] hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                   title="Imprimir Ficha de Separação"
@@ -610,13 +660,18 @@ export function OrdersManager({
                   <span>Imprimir Ficha</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setViewingOrder(null)}
-                  className="p-1 rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer"
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer transition-colors"
+                  title="Fechar Ficha"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
+
+            {/* Conteúdo Rolável Elegante com Scrollbar Customizada */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-5 modal-content-scroll">
 
             {/* Timeline Visual do Pedido */}
             <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD]">
@@ -739,7 +794,7 @@ export function OrdersManager({
               </div>
             </div>
 
-            {/* Total e Breakdown Contábil */}
+            {/* Raio-X de Frete & Lucro desta Encomenda */}
             {(() => {
               const channelInfo = channels.find((c: any) => c.code === viewingOrder.channel);
               const feePct = channelInfo ? channelInfo.feePercentage : 0;
@@ -752,18 +807,36 @@ export function OrdersManager({
                 orderCmv += cost * it.quantity;
               });
 
-              const orderGrossMargin = viewingOrder.totalAmount - estFee - orderCmv;
+              const customerShip =
+                typeof viewingOrder.shippingAmount === "number" ? viewingOrder.shippingAmount : 0;
+              const companyShip = resolveOrderCompanyShippingCost(viewingOrder);
+              const productsTotal = Math.max(0, viewingOrder.totalAmount - customerShip);
+              const isFreeForCustomer =
+                customerShip === 0 || Boolean(viewingOrder.isFreeShippingSubsidized);
+              const cepMatch = viewingOrder.shippingAddress?.match(/\d{5}-\d{3}/)?.[0];
+              const displayCep = viewingOrder.shippingCep || cepMatch;
+              const carrierName = viewingOrder.shippingCarrier || "Correios PAC";
+              const totalCmvPlusFee = orderCmv + estFee;
+              const orderNetProfit =
+                viewingOrder.totalAmount - estFee - orderCmv - companyShip;
 
               return (
-                <div className="p-4 rounded-2xl bg-[#FAF0F4]/40 border border-[#E9D9CD] space-y-3 text-xs">
-                  <div className="flex justify-between items-center">
+                <div className="p-4 rounded-2xl bg-[#FAF0F4]/50 border border-[#E9D9CD] space-y-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E9D9CD]/70">
                     <div>
-                      <span className="text-gray-400 text-[10px] block">Forma de Pagamento</span>
-                      <span className="font-bold text-[#39313A]">{viewingOrder.paymentMethod}</span>
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A3F51] flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5 text-[#9C5B6F]" />
+                        <span>Raio-X de Frete & Lucro desta Encomenda</span>
+                      </span>
+                      <div className="text-[11px] text-gray-600 mt-0.5">
+                        Transportadora: <strong className="text-[#39313A]">{carrierName}</strong>
+                        {viewingOrder.shippingServiceDays ? ` (${viewingOrder.shippingServiceDays})` : ""}
+                        {displayCep ? ` · CEP ${displayCep}` : ""}
+                      </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-gray-400 text-[10px] block">Valor Total do Pedido</span>
-                      <span className={`text-xl font-extrabold ${
+                      <span className="text-gray-400 text-[10px] block">Valor Total Pago pelo Cliente</span>
+                      <span className={`text-lg font-extrabold ${
                         viewingOrder.status === "DEVOLUCAO" || viewingOrder.status === "CANCELADO"
                           ? "line-through text-rose-600"
                           : "text-[#7A3F51]"
@@ -773,25 +846,75 @@ export function OrdersManager({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-[#E9D9CD] text-center text-[10px]">
-                    <div>
-                      <span className="text-gray-400 block">CMV (Custo Make)</span>
-                      <span className="font-bold text-gray-700">{formatCurrency(orderCmv)}</span>
+                  <div className="space-y-1.5 bg-white p-3.5 rounded-xl border border-[#E9D9CD]">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Valor dos Produtos:</span>
+                      <span className="font-bold text-[#39313A]">+ {formatCurrency(productsTotal)}</span>
                     </div>
-                    <div>
-                      <span className="text-gray-400 block">Comissão ({feePct}%)</span>
-                      <span className="font-bold text-rose-600">-{formatCurrency(estFee)}</span>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Frete cobrado do cliente:</span>
+                      {isFreeForCustomer ? (
+                        <span className="font-bold text-emerald-700">
+                          R$ 0,00 (Frete Grátis concedido)
+                        </span>
+                      ) : (
+                        <span className="font-bold text-[#39313A]">
+                          + {formatCurrency(customerShip)}
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-gray-400 block">Margem Líquida</span>
-                      <span className={`font-extrabold ${orderGrossMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                        {formatCurrency(orderGrossMargin)}
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
+                      <span className="font-bold text-rose-700">
+                        (-) Custo do Frete pago pela Bia Makes à transportadora:
+                      </span>
+                      <span className="font-extrabold text-rose-700">
+                        - {formatCurrency(companyShip)}
                       </span>
                     </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-rose-700">
+                        (-) Custo dos Produtos (CMV {formatCurrency(orderCmv)}) + Taxa Canal ({feePct}% · {formatCurrency(estFee)}):
+                      </span>
+                      <span className="font-bold text-rose-700">
+                        - {formatCurrency(totalCmvPlusFee)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pt-2 border-t border-[#E9D9CD]">
+                      <span className="font-extrabold text-[#39313A]">
+                        (=) Lucro Líquido Real desta Encomenda:
+                      </span>
+                      <span className={`font-extrabold ${orderNetProfit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                        {orderNetProfit < 0
+                          ? `- ${formatCurrency(Math.abs(orderNetProfit))}`
+                          : formatCurrency(orderNetProfit)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[11px] text-gray-500">
+                    <span>Pagamento: <strong className="text-[#39313A]">{viewingOrder.paymentMethod}</strong></span>
+                    {isFreeForCustomer && (
+                      <span className="text-amber-700 font-semibold">
+                        Frete Grátis subsidiado pela loja (-{formatCurrency(companyShip)})
+                      </span>
+                    )}
                   </div>
                 </div>
               );
             })()}
+
+            </div>
+
+            {/* Rodapé Fixo do Modal de Pedidos */}
+            <div className="flex justify-end items-center gap-3 px-6 py-3.5 border-t border-[#E9D9CD] bg-[#FAF7F8] shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewingOrder(null)}
+                className="px-5 py-2 rounded-full bg-white border border-[#E9D9CD] text-[#7A3F51] hover:bg-[#FAF0F4] font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+              >
+                Fechar Ficha
+              </button>
+            </div>
 
           </div>
         </div>

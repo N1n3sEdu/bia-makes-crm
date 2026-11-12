@@ -49,7 +49,7 @@ export function CrmDashboard({
   channels,
   onNavigateTab,
 }: CrmDashboardProps) {
-  const [chartView, setChartView] = useState<"7days" | "today" | "channels">("7days");
+  const [chartPeriod, setChartPeriod] = useState<"30days" | "7days" | "today">("7days");
 
   // Saudação dinâmica com base no horário
   const greeting = useMemo(() => {
@@ -212,40 +212,141 @@ export function CrmDashboard({
     return [...lowStock, ...expiring].slice(0, 4);
   }, [products]);
 
-  // Performance de vendas de hoje baseada nos pedidos faturados reais
-  const todayPerformance = useMemo(() => {
-    const now = new Date();
-    const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth();
-    const todayDate = now.getDate();
-
+  // Performance comercial integrada ao financeiro real (com suporte aos períodos: 30 dias, 7 dias e Dia atual)
+  const commercialPerformance = useMemo(() => {
     const activeStatuses = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
-    const todaysOrders = orders.filter((o) => {
-      if (!activeStatuses.includes(o.status)) return false;
-      const d = new Date(o.createdAt);
-      return !isNaN(d.getTime()) &&
-        d.getFullYear() === todayYear &&
-        d.getMonth() === todayMonth &&
-        d.getDate() === todayDate;
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Pedidos faturados válidos
+    const validOrders = orders.filter((o) => activeStatuses.includes(o.status));
+
+    // Pedidos de hoje
+    const todayOrders = validOrders.filter((o) => {
+      const t = new Date(o.createdAt).getTime();
+      return !isNaN(t) && t >= todayMidnight;
     });
 
-    const gross = Math.round(todaysOrders.reduce((acc, o) => acc + o.totalAmount, 0) * 100) / 100;
-    const net = Math.round(gross * 0.35 * 100) / 100;
-    return { gross, net };
-  }, [orders]);
+    // 1. Visão Dia Atual (dividido em 6 faixas horárias de 4 horas)
+    const todayBlocks = [
+      { label: "00h-04h", minH: 0, maxH: 4 },
+      { label: "04h-08h", minH: 4, maxH: 8 },
+      { label: "08h-12h", minH: 8, maxH: 12 },
+      { label: "12h-16h", minH: 12, maxH: 16 },
+      { label: "16h-20h", minH: 16, maxH: 20 },
+      { label: "20h-24h", minH: 20, maxH: 24 },
+    ];
 
-  // Dados do gráfico de performance semanal com o dia de Hoje sincronizado ao CRM
-  const weeklyChartData = [
-    { day: "Seg", gross: 5800, net: 2100, isPeak: false },
-    { day: "Ter", gross: 6400, net: 2320, isPeak: false },
-    { day: "Qua", gross: 7900, net: 2880, isPeak: false },
-    { day: "Qui", gross: 8650, net: 3150, isPeak: false },
-    { day: "Sex", gross: 10400, net: 3820, isPeak: true },
-    { day: "Sáb", gross: 9100, net: 3340, isPeak: false },
-    { day: "Hoje", gross: todayPerformance.gross, net: todayPerformance.net, isPeak: false },
-  ];
+    interface ChartItem {
+      label: string;
+      gross: number;
+      ordersCount: number;
+      isToday?: boolean;
+    }
 
-  const maxWeeklyValue = 12000;
+    const todayData: ChartItem[] = todayBlocks.map((b) => {
+      const ordersInBlock = todayOrders.filter((o) => {
+        const d = new Date(o.createdAt);
+        const h = d.getHours();
+        return h >= b.minH && h < b.maxH;
+      });
+      const gross = ordersInBlock.reduce((acc, o) => acc + o.totalAmount, 0);
+      return {
+        label: b.label,
+        gross: Math.round(gross * 100) / 100,
+        ordersCount: ordersInBlock.length,
+      };
+    });
+
+    // 2. Visão 7 Dias (últimos 7 dias retroativos incluindo hoje)
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const last7DaysData: ChartItem[] = Array.from({ length: 7 }).map((_, idx) => {
+      const dayOffset = 6 - idx; // 6 dias atrás até 0 (hoje)
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset);
+      const startMs = targetDate.getTime();
+      const endMs = startMs + 86400000;
+
+      const dayOrders = validOrders.filter((o) => {
+        const t = new Date(o.createdAt).getTime();
+        return !isNaN(t) && t >= startMs && t < endMs;
+      });
+
+      const dayGross = dayOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+      const isToday = dayOffset === 0;
+
+      return {
+        label: isToday ? "Hoje" : dayNames[targetDate.getDay()],
+        gross: Math.round(dayGross * 100) / 100,
+        ordersCount: dayOrders.length,
+        isToday,
+      };
+    });
+
+    // 3. Visão 30 Dias (agrupados em 5 semanas de 6 dias para visualização limpa em barras)
+    const last30DaysData: ChartItem[] = [
+      { label: "Sem 1", daysBackStart: 30, daysBackEnd: 24 },
+      { label: "Sem 2", daysBackStart: 24, daysBackEnd: 18 },
+      { label: "Sem 3", daysBackStart: 18, daysBackEnd: 12 },
+      { label: "Sem 4", daysBackStart: 12, daysBackEnd: 6 },
+      { label: "Sem 5", daysBackStart: 6, daysBackEnd: 0 },
+    ].map((b) => {
+      const startMs = new Date(now.getFullYear(), now.getMonth(), now.getDate() - b.daysBackStart).getTime();
+      const endMs = new Date(now.getFullYear(), now.getMonth(), now.getDate() - b.daysBackEnd).getTime();
+
+      const blockOrders = validOrders.filter((o) => {
+        const t = new Date(o.createdAt).getTime();
+        return !isNaN(t) && t >= startMs && (b.daysBackEnd === 0 ? t <= now.getTime() : t < endMs);
+      });
+
+      const gross = blockOrders.reduce((acc, o) => acc + o.totalAmount, 0);
+      return {
+        label: b.label,
+        gross: Math.round(gross * 100) / 100,
+        ordersCount: blockOrders.length,
+      };
+    });
+
+    // Seção ativa
+    let activeData: ChartItem[] = last7DaysData;
+    let periodTitle = "Evolução Comercial (Últimos 7 Dias)";
+    let periodSubtitle = "Acompanhamento diário com faturamento bruto real sincronizado ao financeiro.";
+
+    if (chartPeriod === "30days") {
+      activeData = last30DaysData;
+      periodTitle = "Evolução Comercial (Últimos 30 Dias)";
+      periodSubtitle = "Faturamento consolidado das últimas semanas refletindo as vendas ativas.";
+    } else if (chartPeriod === "today") {
+      activeData = todayData;
+      periodTitle = "Evolução Comercial (Dia Atual)";
+      periodSubtitle = "Vendas e pedidos faturados hoje ao longo do dia em tempo real.";
+    }
+
+    const currentTotalGross = activeData.reduce((acc, d) => acc + d.gross, 0);
+    const maxVal = Math.max(...activeData.map((d) => d.gross), 100);
+
+    // Identificar pico
+    let peakIndex = -1;
+    let peakGross = 0;
+    activeData.forEach((d, idx) => {
+      if (d.gross > peakGross) {
+        peakGross = d.gross;
+        peakIndex = idx;
+      }
+    });
+
+    const activeOrdersCount = activeData.reduce((acc, d) => acc + d.ordersCount, 0);
+    const averageTicket = activeOrdersCount > 0 ? currentTotalGross / activeOrdersCount : 0;
+
+    return {
+      items: activeData,
+      maxValue: maxVal,
+      peakIndex,
+      totalGross: currentTotalGross,
+      averageTicket,
+      periodTitle,
+      periodSubtitle,
+    };
+  }, [orders, chartPeriod]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -450,70 +551,85 @@ export function CrmDashboard({
       {/* 3. BENTO GRID PRINCIPAL (GRÁFICO DE PERFORMANCE + VALUATION DO ESTOQUE) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
-        {/* Coluna Esquerda: Gráfico de Performance Semanal (7 colunas) */}
+        {/* Coluna Esquerda: Gráfico de Performance Comercial Real (7 colunas) */}
         <div className="lg:col-span-7 bg-white p-6 sm:p-7 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col justify-between space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="font-serif text-lg font-bold text-[#39313A] flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#C69A76]" />
-                <span>Evolução Comercial (Últimos 7 Dias)</span>
+                <span>{commercialPerformance.periodTitle}</span>
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Pico semanal às sextas-feiras com faturamento bruto vs. retenção líquida.
+                {commercialPerformance.periodSubtitle}
               </p>
             </div>
 
-            {/* Seletor Rápido do Card */}
+            {/* Seletor de Período Solicitado: 30 dias | 7 dias | Dia atual */}
             <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center text-[10px] font-bold self-start sm:self-auto">
               <button
-                onClick={() => setChartView("7days")}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  chartView === "7days" ? "bg-[#7A3F51] text-white shadow-2xs" : "text-gray-600"
+                type="button"
+                onClick={() => setChartPeriod("30days")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  chartPeriod === "30days"
+                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    : "text-gray-600 hover:text-[#7A3F51]"
+                }`}
+              >
+                30 Dias
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartPeriod("7days")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  chartPeriod === "7days"
+                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    : "text-gray-600 hover:text-[#7A3F51]"
                 }`}
               >
                 7 Dias
               </button>
               <button
-                onClick={() => setChartView("today")}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  chartView === "today" ? "bg-[#7A3F51] text-white shadow-2xs" : "text-gray-600"
+                type="button"
+                onClick={() => setChartPeriod("today")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  chartPeriod === "today"
+                    ? "bg-[#7A3F51] text-white shadow-2xs"
+                    : "text-gray-600 hover:text-[#7A3F51]"
                 }`}
               >
-                Por Hora
-              </button>
-              <button
-                onClick={() => setChartView("channels")}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  chartView === "channels" ? "bg-[#7A3F51] text-white shadow-2xs" : "text-gray-600"
-                }`}
-              >
-                Por Canal
+                Dia Atual
               </button>
             </div>
           </div>
 
-          {/* Gráfico de Barras Estilizado em SVG / HTML */}
+          {/* Gráfico de Barras Estilizado sincronizado aos pedidos e dados financeiros */}
           <div className="pt-4 pb-2">
             <div className="flex items-end justify-between gap-3 h-48 border-b border-[#E9D9CD] pb-2">
-              {weeklyChartData.map((d, i) => {
-                const heightPct = Math.min(100, Math.round((d.gross / maxWeeklyValue) * 100));
+              {commercialPerformance.items.map((d, i) => {
+                const heightPct = commercialPerformance.maxValue > 0
+                  ? Math.min(100, Math.max(d.gross > 0 ? 8 : 2, Math.round((d.gross / commercialPerformance.maxValue) * 100)))
+                  : 4;
+                const isPeak = i === commercialPerformance.peakIndex && d.gross > 0;
+
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
-                    <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-mono font-bold text-[#7A3F51] opacity-0 group-hover:opacity-100 transition-opacity">
                       {formatCurrency(d.gross)}
                     </span>
                     <div className="w-full bg-[#FAF0F4] rounded-t-xl overflow-hidden flex items-end h-36">
                       <div
                         style={{ height: `${heightPct}%` }}
                         className={`w-full transition-all duration-500 rounded-t-xl ${
-                          d.isPeak
+                          isPeak
                             ? "bg-gradient-to-t from-[#7A3F51] to-[#9C5B6F] shadow-xs"
-                            : "bg-[#C69A76]/70 group-hover:bg-[#C69A76]"
+                            : d.gross > 0
+                            ? "bg-[#C69A76]/80 group-hover:bg-[#C69A76]"
+                            : "bg-[#E9D9CD]/40"
                         }`}
                       />
                     </div>
-                    <span className={`text-[11px] font-bold ${d.day === "Hoje" ? "text-[#7A3F51]" : "text-gray-500"}`}>
-                      {d.day}
+                    <span className={`text-[11px] font-bold ${d.label === "Hoje" ? "text-[#7A3F51]" : "text-gray-500"}`}>
+                      {d.label}
                     </span>
                   </div>
                 );
@@ -521,15 +637,19 @@ export function CrmDashboard({
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs pt-1 text-gray-600 border-t border-[#E9D9CD]/50">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs pt-1 text-gray-600 border-t border-[#E9D9CD]/50 gap-2">
+            <div className="flex items-center gap-4 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#7A3F51]" />
-                <span>Pico Semanal: <strong>Sexta-feira (R$ 10.400)</strong></span>
+                <span>
+                  Faturamento do Período: <strong>{formatCurrency(commercialPerformance.totalGross)}</strong>
+                </span>
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span>Ticket Médio Diário: <strong>R$ 118,80</strong></span>
+                <span>
+                  Ticket Médio: <strong>{formatCurrency(commercialPerformance.averageTicket)}</strong>
+                </span>
               </span>
             </div>
           </div>

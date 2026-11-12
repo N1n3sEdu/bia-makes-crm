@@ -7,7 +7,7 @@ import { CrmDashboard } from "@/components/crm/CrmDashboard";
 import { ProductsManager } from "@/components/crm/ProductsManager";
 import { StockManager } from "@/components/crm/StockManager";
 import { OrdersManager } from "@/components/crm/OrdersManager";
-import { MarketplacesManager } from "@/components/crm/MarketplacesManager";
+import { TrafficManager } from "@/components/crm/TrafficManager";
 import { FinancialManager } from "@/components/crm/FinancialManager";
 import { ImportExportManager } from "@/components/crm/ImportExportManager";
 import { UsersManager } from "@/components/crm/UsersManager";
@@ -25,12 +25,13 @@ import {
   Globe, 
   DollarSign, 
   FileSpreadsheet,
-  Users
+  Users,
+  Radar
 } from "lucide-react";
 
 const ROLE_ALLOWED_TABS: Record<UserRole, string[]> = {
-  ADMIN: ["dashboard", "products", "stock", "orders", "marketplaces", "financial", "import", "users"],
-  GERENTE: ["dashboard", "products", "stock", "orders", "marketplaces", "financial", "import", "users"],
+  ADMIN: ["dashboard", "products", "stock", "orders", "traffic", "financial", "import", "users"],
+  GERENTE: ["dashboard", "products", "stock", "orders", "traffic", "financial", "import", "users"],
   ESTOQUE: ["products", "stock"],
   VENDAS: ["dashboard", "products", "orders"],
   FINANCEIRO: ["dashboard", "orders", "financial"],
@@ -162,17 +163,17 @@ export default function AdminPage() {
             </button>
           )}
 
-          {allowedTabs.includes("marketplaces") && (
+          {allowedTabs.includes("traffic") && (
             <button
-              onClick={() => setCrmActiveTab("marketplaces")}
+              onClick={() => setCrmActiveTab("traffic")}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-                crmActiveTab === "marketplaces"
+                crmActiveTab === "traffic"
                   ? "bg-[#9C5B6F] text-white shadow-md"
                   : "text-[#39313A] hover:bg-[#F5DDE5]/40"
               }`}
             >
-              <Globe className="w-4 h-4" />
-              <span>Marketplaces</span>
+              <Radar className="w-4 h-4" />
+              <span>Tráfego & Origens</span>
             </button>
           )}
 
@@ -229,13 +230,8 @@ export default function AdminPage() {
           />
         )}
 
-        {crmActiveTab === "marketplaces" && (
-          <MarketplacesManager
-            channels={channels}
-            onSyncChannel={syncChannel}
-            onSyncAllChannels={syncAllChannels}
-            onUpdateChannel={updateChannel}
-          />
+        {crmActiveTab === "traffic" && (
+          <TrafficManager />
         )}
 
         {crmActiveTab === "financial" && (

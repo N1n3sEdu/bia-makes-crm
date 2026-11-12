@@ -34,6 +34,8 @@ import {
   Store,
   UserCheck,
   Lock,
+  Radar,
+  MousePointerClick,
 } from "lucide-react";
 import { useBiaMakes } from "@/context/BiaMakesContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -415,17 +417,14 @@ export function CommandMenuSpotlight() {
         action: () => navigateToAdminTab("stock", "Estoque Central (Kardex)", "shortcut-new-item"),
       },
       {
-        id: "act-sync-all-channels",
-        title: "> Sincronizar Todos os Marketplaces & Entra ID",
-        subtitle: `Playbook de Integração • Atualiza estoque e anúncios em ${channels.length} canais conectados`,
+        id: "act-new-tracked-link",
+        title: "> Criar Novo Link Rastreável de Divulgação",
+        subtitle: "Playbook de Tráfego • Gera link encurtado com UTMs para bio do Instagram ou WhatsApp",
         category: "PLAYBOOK / AÇÃO",
-        keywords: "> sincronizar marketplaces canais shopee mercado livre tiktok instagram entra id",
-        icon: RefreshCw,
+        keywords: "> novo link rastreavel trafego utm bio instagram stories zap",
+        icon: MousePointerClick,
         prefixType: "action",
-        action: () => {
-          syncAllChannels();
-          setIsSpotlightOpen(false);
-        },
+        action: () => navigateToAdminTab("traffic", "Tráfego & Origens dos Clientes", "shortcut-new-item"),
       },
       {
         id: "act-export-ged-dre",
@@ -520,14 +519,14 @@ export function CommandMenuSpotlight() {
         action: () => navigateToAdminTab("orders", "Pedidos & Vendas"),
       },
       {
-        id: "nav-marketplaces",
-        title: "Marketplaces & Integrações (Alt+5)",
-        subtitle: `Módulo Principal CRM • ${channels.length} canais e hubs configurados`,
+        id: "nav-traffic",
+        title: "Tráfego & Origens dos Clientes (Alt+5)",
+        subtitle: "Módulo Principal CRM • Visitantes, conversão, links da bio e funil de compras",
         category: "NAVEGAÇÃO (ALT+5)",
-        keywords: "marketplaces canais shopee mercado livre tiktok amazon instagram alt+5",
-        icon: Globe,
+        keywords: "trafego origens visitantes links bio instagram whatsapp cliques funil alt+5",
+        icon: Radar,
         prefixType: "route",
-        action: () => navigateToAdminTab("marketplaces", "Marketplaces & Canais"),
+        action: () => navigateToAdminTab("traffic", "Tráfego & Origens dos Clientes"),
       },
       {
         id: "nav-financial",
@@ -587,7 +586,7 @@ export function CommandMenuSpotlight() {
         action: () => {
           setActiveScopeName(`${ch.name} (${ch.accountName})`);
           syncChannel(ch.id);
-          navigateToAdminTab("marketplaces", `Escopo @${ch.name}`);
+          navigateToAdminTab("traffic", `Canal @${ch.name}`);
         },
       });
     });

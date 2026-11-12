@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { BiaMakesProvider } from "@/context/BiaMakesContext";
+import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
+import { CookieConsentBanner } from "@/components/analytics/CookieConsentBanner";
 
 export const metadata: Metadata = {
   title: "Bia Makes — Loja Oficial de Maquiagem & Cosméticos",
@@ -28,7 +31,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#FAF7F8] text-[#39313A] antialiased selection:bg-[#F5DDE5] selection:text-[#7A3F51]">
         <BiaMakesProvider>
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+          </Suspense>
           {children}
+          <CookieConsentBanner />
         </BiaMakesProvider>
       </body>
     </html>

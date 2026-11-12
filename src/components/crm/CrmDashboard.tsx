@@ -606,105 +606,62 @@ export function CrmDashboard({
 
       </div>
 
-      {/* 4. RANKING CURVA ABC + RADAR DE MIX DE CANAIS */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        
-        {/* Coluna Esquerda: Top 4 Produtos Mais Rentáveis (7 colunas) */}
-        <div className="lg:col-span-7 bg-white p-6 sm:p-7 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-500" />
-              <h3 className="font-serif text-lg font-bold text-[#39313A]">
-                Top Produtos Mais Rentáveis (Curva ABC)
-              </h3>
-            </div>
-            <button
-              onClick={() => onNavigateTab("products")}
-              className="text-xs font-bold text-[#7A3F51] hover:underline"
-            >
-              Ver Catálogo
-            </button>
+      {/* 4. RANKING CURVA ABC */}
+      <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-orange-500" />
+            <h3 className="font-serif text-lg font-bold text-[#39313A]">
+              Top Produtos Mais Rentáveis (Curva ABC)
+            </h3>
           </div>
-
-          <div className="space-y-3">
-            {topProducts.map((p, idx) => (
-              <div
-                key={p.id}
-                className="p-3 rounded-2xl bg-[#FAF7F8] hover:bg-[#FAF0F4] border border-[#E9D9CD] transition-all flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-5 h-5 rounded-full bg-white border border-[#E9D9CD] flex items-center justify-center text-[10px] font-extrabold text-[#7A3F51] shrink-0">
-                    {idx + 1}
-                  </span>
-                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-white border border-[#E9D9CD] shrink-0 relative">
-                    <Image
-                      src={p.images?.[0] || "/logo.jpg"}
-                      alt={p.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="font-bold text-xs text-[#39313A] truncate block">
-                      {p.name}
-                    </span>
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      SKU: {p.sku} • {p.physicalStock} un em estoque
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="font-extrabold text-xs text-[#7A3F51] block">
-                    {formatCurrency(p.sellingPrice)}
-                  </span>
-                  <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Margem: {p.unitMargin}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <button
+            onClick={() => onNavigateTab("products")}
+            className="text-xs font-bold text-[#7A3F51] hover:underline"
+          >
+            Ver Catálogo
+          </button>
         </div>
 
-        {/* Coluna Direita: Radar de Mix de Canais com Barra de Share (5 colunas) */}
-        <div className="lg:col-span-5 bg-white p-6 sm:p-7 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Store className="w-4 h-4 text-[#9C5B6F]" />
-              <h3 className="font-serif text-lg font-bold text-[#39313A]">
-                Mix de Canais & Participação
-              </h3>
-            </div>
-            <button
-              onClick={() => onNavigateTab("marketplaces")}
-              className="text-xs font-bold text-[#7A3F51] hover:underline"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {topProducts.map((p, idx) => (
+            <div
+              key={p.id}
+              className="p-3 rounded-2xl bg-[#FAF7F8] hover:bg-[#FAF0F4] border border-[#E9D9CD] transition-all flex items-center justify-between gap-3"
             >
-              Conectores
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {channelPerformance.map((c) => (
-              <div key={c.id} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#39313A]">{c.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-[#7A3F51]">{formatCurrency(c.revenue)}</span>
-                    <span className="text-[10px] font-bold text-gray-500 w-10 text-right">{c.share}%</span>
-                  </div>
-                </div>
-                <div className="h-2 rounded-full bg-[#FAF7F8] overflow-hidden border border-[#E9D9CD]/50">
-                  <div
-                    style={{ width: `${c.shareNum}%`, backgroundColor: c.color }}
-                    className="h-full rounded-full transition-all duration-500"
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-5 h-5 rounded-full bg-white border border-[#E9D9CD] flex items-center justify-center text-[10px] font-extrabold text-[#7A3F51] shrink-0">
+                  {idx + 1}
+                </span>
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-white border border-[#E9D9CD] shrink-0 relative">
+                  <Image
+                    src={p.images?.[0] || "/logo.jpg"}
+                    alt={p.name}
+                    fill
+                    className="object-cover"
                   />
                 </div>
+                <div className="min-w-0">
+                  <span className="font-bold text-xs text-[#39313A] truncate block">
+                    {p.name}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-mono">
+                    SKU: {p.sku} • {p.physicalStock} un em estoque
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
 
+              <div className="text-right shrink-0">
+                <span className="font-extrabold text-xs text-[#7A3F51] block">
+                  {formatCurrency(p.sellingPrice)}
+                </span>
+                <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Margem: {p.unitMargin}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 5. CENTRAL UNIFICADA DE RISCO (RUPTURA DE ESTOQUE & ANVISA) */}

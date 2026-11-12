@@ -21,6 +21,7 @@ import {
   initialUsers,
   currentUser as defaultAdminUser,
 } from "@/lib/data";
+import { trackEvent } from "@/lib/analytics/track";
 
 export interface CartItem {
   product: Product;
@@ -418,6 +419,11 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
     if (addedSuccessfully) {
       setIsCartOpen(true);
+      const itemPrice = currentProd.promoPrice || currentProd.salePrice;
+      trackEvent("add_to_cart", {
+        product_sku: currentProd.sku,
+        value_cents: Math.round(itemPrice * 100),
+      });
     }
   };
 
@@ -672,6 +678,19 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       paymentMethodLabel = "Negociação Direta via WhatsApp VIP";
     }
 
+    let sessionAttribution: Order['attribution'] = undefined;
+    if (typeof window !== 'undefined') {
+      const source = sessionStorage.getItem('bm_session_source');
+      if (source) {
+        sessionAttribution = {
+          source,
+          medium: sessionStorage.getItem('bm_session_medium') || undefined,
+          campaign: sessionStorage.getItem('bm_session_campaign') || undefined,
+          link_code: sessionStorage.getItem('bm_session_link_code') || undefined,
+        };
+      }
+    }
+
     const newOrder: Order = {
       id: orderId,
       orderNumber,
@@ -686,6 +705,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       paymentMethod: paymentMethodLabel,
       shippingAddress: orderData.shippingAddress.trim(),
       createdAt: new Date().toISOString(),
+      attribution: sessionAttribution,
     };
 
     // Incrementar reservedStock de cada produto comprado e atualizar o saldo da variação

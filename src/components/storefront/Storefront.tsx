@@ -32,6 +32,7 @@ import { formatCurrency } from "@/lib/utils";
 import { CartItem } from "@/context/BiaMakesContext";
 import { STORE_CONFIG } from "@/lib/data";
 import { CheckoutModal } from "./CheckoutModal";
+import { trackEvent } from "@/lib/analytics/track";
 
 interface StorefrontProps {
   products: Product[];
@@ -170,6 +171,7 @@ export function Storefront({
     text += `\n*Frete Calculado:* ${shipping === 0 ? 'GRÁTIS' : formatCurrency(shipping)}`;
     text += `\n*TOTAL:* ${formatCurrency(total)}\n\nPor favor, confirmem o envio e a chave PIX! ✨`;
 
+    trackEvent("outbound_click", { target: "whatsapp" });
     const encoded = encodeURIComponent(text);
     window.open(`https://api.whatsapp.com/send?phone=${STORE_CONFIG.whatsappNumber}&text=${encoded}`, '_blank');
   };
@@ -424,6 +426,7 @@ export function Storefront({
                       </button>
                       <button
                         onClick={() => {
+                          trackEvent("product_view", { product_sku: product.sku });
                           setQuickViewProduct(product);
                           setQuickViewVar(activeVariations[product.id] || product.variations?.[0]);
                           setCepResult(null);
@@ -643,6 +646,7 @@ export function Storefront({
                 href={STORE_CONFIG.instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent("outbound_click", { target: "instagram" })}
                 className="px-4 py-2.5 rounded-2xl bg-[#9C5B6F] text-white text-xs font-bold flex items-center gap-2 shadow-sm hover:bg-[#7A3F51] transition-all"
               >
                 <Instagram className="w-4 h-4" />
@@ -652,6 +656,7 @@ export function Storefront({
                 href={STORE_CONFIG.shopeeStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent("outbound_click", { target: "shopee" })}
                 className="px-4 py-2.5 rounded-2xl bg-white border border-[#E9D9CD] text-[#39313A] text-xs font-bold flex items-center gap-2 hover:border-[#9C5B6F] transition-all"
               >
                 <span>Loja Shopee</span>
@@ -901,6 +906,7 @@ export function Storefront({
                         href={quickViewProduct.socialLinks.instagramUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => trackEvent("outbound_click", { target: "instagram", product_sku: quickViewProduct.sku })}
                         className="px-3 py-1.5 rounded-xl bg-[#FAF0F4] border border-[#E9D9CD] text-[#7A3F51] text-[11px] font-bold hover:bg-[#F5DDE5] flex items-center gap-1"
                       >
                         <Instagram className="w-3.5 h-3.5 text-[#9C5B6F]" />
@@ -912,6 +918,7 @@ export function Storefront({
                         href={quickViewProduct.socialLinks.shopeeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => trackEvent("outbound_click", { target: "shopee", product_sku: quickViewProduct.sku })}
                         className="px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-800 text-[11px] font-bold hover:bg-orange-100 flex items-center gap-1"
                       >
                         <span>Shopee ({quickViewProduct.physicalStock - quickViewProduct.reservedStock} un)</span>
@@ -923,6 +930,7 @@ export function Storefront({
                         href={quickViewProduct.socialLinks.mercadoLivreUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => trackEvent("outbound_click", { target: "mercado_livre", product_sku: quickViewProduct.sku })}
                         className="px-3 py-1.5 rounded-xl bg-yellow-50 border border-yellow-300 text-yellow-900 text-[11px] font-bold hover:bg-yellow-100 flex items-center gap-1"
                       >
                         <span>Mercado Livre</span>

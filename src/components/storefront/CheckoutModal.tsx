@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { 
   X, 
@@ -26,6 +26,7 @@ import { CartItem, useBiaMakes } from "@/context/BiaMakesContext";
 import { STORE_CONFIG } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import { Order } from "@/types";
+import { trackEvent } from "@/lib/analytics/track";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -77,6 +78,14 @@ export function CheckoutModal({
   const [pixCopied, setPixCopied] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      trackEvent("begin_checkout", {
+        value_cents: Math.round(total * 100),
+      });
+    }
+  }, [isOpen, total]);
 
   if (!isOpen) return null;
 
@@ -204,6 +213,11 @@ export function CheckoutModal({
   // Enviar comprovante no WhatsApp
   const handleSendWhatsAppConfirmation = () => {
     if (!createdOrder) return;
+
+    trackEvent("whatsapp_order", {
+      value_cents: Math.round(createdOrder.totalAmount * 100),
+      order_number: createdOrder.orderNumber,
+    });
 
     let itemsList = "";
     createdOrder.items.forEach((it, idx) => {

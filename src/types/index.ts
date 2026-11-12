@@ -114,6 +114,12 @@ export interface Order {
   shippingAddress: string;
   trackingCode?: string;
   createdAt: string;
+  attribution?: {
+    source: string;
+    medium?: string;
+    campaign?: string;
+    link_code?: string;
+  };
 }
 
 export interface MarketplaceChannel {

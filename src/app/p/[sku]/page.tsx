@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -24,6 +24,7 @@ import { formatCurrency, formatDateShort } from "@/lib/utils";
 import { ProductVariation } from "@/types";
 import { STORE_CONFIG } from "@/lib/data";
 import { CheckoutModal } from "@/components/storefront/CheckoutModal";
+import { trackEvent } from "@/lib/analytics/track";
 
 export default function ProductSocialEmbedPage() {
   const params = useParams();
@@ -49,6 +50,12 @@ export default function ProductSocialEmbedPage() {
   const [selectedShippingOption, setSelectedShippingOption] = useState<"pac" | "sedex" | "express">("pac");
   const [copied, setCopied] = useState(false);
   const [isDirectCheckoutOpen, setIsDirectCheckoutOpen] = useState(false);
+
+  useEffect(() => {
+    if (product?.sku) {
+      trackEvent("product_view", { product_sku: product.sku });
+    }
+  }, [product?.sku]);
 
   if (!product) {
     return (
@@ -117,6 +124,8 @@ export default function ProductSocialEmbedPage() {
       alert("O tom selecionado está esgotado no momento.");
       return;
     }
+
+    trackEvent("outbound_click", { target: "whatsapp", product_sku: product.sku });
 
     const shadeText = selectedVar ? ` (Tom: ${selectedVar.name})` : "";
     const msg =
@@ -331,7 +340,10 @@ export default function ProductSocialEmbedPage() {
 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
-                    onClick={() => setIsDirectCheckoutOpen(true)}
+                    onClick={() => {
+                      trackEvent("begin_checkout", { value_cents: Math.round(totalWithShip * 100) });
+                      setIsDirectCheckoutOpen(true);
+                    }}
                     disabled={isVarOutOfStock}
                     className={`px-5 py-3 rounded-full text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all ${
                       !isVarOutOfStock
@@ -486,6 +498,7 @@ export default function ProductSocialEmbedPage() {
                       href={product.socialLinks.instagramUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackEvent("outbound_click", { target: "instagram", product_sku: product.sku })}
                       className="p-2.5 rounded-2xl bg-[#FAF0F4] border border-[#E9D9CD] hover:border-[#9C5B6F] text-center transition-all"
                     >
                       <div className="text-xs font-bold text-[#7A3F51] flex items-center justify-center gap-1">
@@ -502,6 +515,7 @@ export default function ProductSocialEmbedPage() {
                       href={product.socialLinks.shopeeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackEvent("outbound_click", { target: "shopee", product_sku: product.sku })}
                       className="p-2.5 rounded-2xl bg-orange-50 border border-orange-200 hover:border-orange-400 text-center transition-all"
                     >
                       <div className="text-xs font-bold text-orange-800 flex items-center justify-center gap-1">
@@ -518,6 +532,7 @@ export default function ProductSocialEmbedPage() {
                       href={product.socialLinks.mercadoLivreUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackEvent("outbound_click", { target: "mercado_livre", product_sku: product.sku })}
                       className="p-2.5 rounded-2xl bg-yellow-50 border border-yellow-300 hover:border-yellow-500 text-center transition-all"
                     >
                       <div className="text-xs font-bold text-yellow-900 flex items-center justify-center gap-1">
@@ -534,6 +549,7 @@ export default function ProductSocialEmbedPage() {
                       href={product.socialLinks.tiktokUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackEvent("outbound_click", { target: "tiktok", product_sku: product.sku })}
                       className="p-2.5 rounded-2xl bg-pink-50 border border-pink-200 hover:border-pink-400 text-center transition-all"
                     >
                       <div className="text-xs font-bold text-pink-900 flex items-center justify-center gap-1">

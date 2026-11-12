@@ -376,13 +376,6 @@ export function CrmDashboard({
               <span>Novo Produto</span>
             </button>
             <button
-              onClick={() => onNavigateTab("import")}
-              className="px-4 py-2 bg-[#FAF7F8] hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#9C5B6F]" />
-              <span>Importar Planilha</span>
-            </button>
-            <button
               onClick={() => {
                 window.dispatchEvent(new CustomEvent("biamakes-open-spotlight"));
               }}

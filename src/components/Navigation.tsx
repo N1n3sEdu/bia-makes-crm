@@ -170,12 +170,12 @@ export function Navigation({
     saveReadNotificationIds(Array.from(new Set([...readNotificationIds, ...notifications.map((n) => n.id)])));
   };
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#E9D9CD]/60 shadow-sm transition-all">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-bia-nude/80 shadow-soft transition-all">
       {/* Top Notice Bar */}
-      <div className="bg-gradient-to-r from-[#F5DDE5] via-[#FAF7F8] to-[#EDE5F3] px-4 py-1.5 text-xs text-[#39313A] border-b border-[#E9D9CD]/40">
+      <div className="bg-gradient-to-r from-bia-pink via-bia-offwhite to-bia-lilas px-4 py-1.5 text-xs text-bia-text border-b border-bia-nude/60">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#C69A76] animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 text-bia-rosegold animate-pulse" />
             <span className="font-medium">
               {variant === 'admin'
                 ? 'Ambiente Administrativo Criptografado — Sincronização Multicanal Ativa'
@@ -188,13 +188,13 @@ export function Navigation({
               href={STORE_CONFIG.instagramUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 font-semibold text-[#9C5B6F] hover:text-[#7A3F51] transition-colors"
+              className="flex items-center gap-1.5 font-semibold text-bia-marsala hover:text-bia-marsala-dark transition-colors"
             >
               <Instagram className="w-3.5 h-3.5" />
               <span>{STORE_CONFIG.instagramHandle}</span>
             </a>
-            <span className="hidden md:inline text-[#E9D9CD]">|</span>
-            <span className="hidden md:flex items-center gap-1 text-[#39313A]/70 font-medium">
+            <span className="hidden md:inline text-bia-nude">|</span>
+            <span className="hidden md:flex items-center gap-1 text-bia-text/80 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               Cosméticos 100% Originais & Regulamentados
             </span>
@@ -208,7 +208,7 @@ export function Navigation({
           
           {/* Logo & Brand Name */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-[#C69A76]/50 shadow-md group-hover:scale-105 transition-transform">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-bia-rosegold/60 shadow-glow group-hover:scale-105 transition-transform">
               <Image 
                 src="/logo.jpg" 
                 alt="Logo Bia Make Oficial"
@@ -219,19 +219,19 @@ export function Navigation({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-display text-2xl tracking-tight font-extrabold text-[#7A3F51]">
+                <span className="font-display text-2xl tracking-tight font-extrabold text-bia-marsala-dark">
                   Bia
                 </span>
-                <span className="font-display text-xl tracking-widest text-[#9C5B6F] font-semibold">
+                <span className="font-display text-xl tracking-widest text-bia-marsala font-semibold">
                   MAKE
                 </span>
                 {variant === 'admin' && (
-                  <span className="ml-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#9C5B6F] text-white rounded-full">
+                  <span className="ml-1.5 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-bia-marsala text-white rounded-full">
                     CRM / ERP
                   </span>
                 )}
               </div>
-              <p className="text-[10px] tracking-wider uppercase text-[#C69A76] font-bold">
+              <p className="text-[11px] tracking-wider uppercase text-bia-rosegold-dark font-bold">
                 {variant === 'admin' ? 'Central de Gestão Integrada' : 'Cosméticos & Alta Beleza'}
               </p>
             </div>
@@ -239,7 +239,7 @@ export function Navigation({
 
           {/* Center Navigation Links (Customer Storefront Only) */}
           {variant === 'storefront' && (
-            <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-[#39313A]/80">
+            <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-bia-text/85">
               <button
                 type="button"
                 onClick={() => {
@@ -248,7 +248,7 @@ export function Navigation({
                   el?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className={`transition-colors cursor-pointer ${
-                  selectedCategory === 'Todos' ? 'text-[#9C5B6F] font-bold underline underline-offset-4' : 'hover:text-[#9C5B6F]'
+                  selectedCategory === 'Todos' ? 'text-bia-marsala font-bold underline underline-offset-4' : 'hover:text-bia-marsala'
                 }`}
               >
                 Catálogo Oficial
@@ -517,27 +517,6 @@ export function Navigation({
                             <button
                               type="button"
                               onClick={() => {
-                                onNavigateTab?.("import");
-                                setIsUserMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                                crmActiveTab === "import"
-                                  ? "bg-[#9C5B6F] text-white shadow-sm"
-                                  : "text-[#39313A] hover:bg-[#FAF0F4] hover:text-[#7A3F51]"
-                              }`}
-                            >
-                              <FileSpreadsheet className="w-4 h-4 shrink-0" />
-                              <div className="text-left">
-                                <span className="block">Importar Planilhas</span>
-                                <span className={`text-[10px] font-normal ${crmActiveTab === "import" ? "text-white/80" : "text-gray-500"}`}>
-                                  Excel & CSV em lote
-                                </span>
-                              </div>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
                                 onNavigateTab?.("users");
                                 setIsUserMenuOpen(false);
                               }}
@@ -562,7 +541,7 @@ export function Navigation({
                               <Lock className="w-4 h-4" />
                             </div>
                             <p className="text-[11px] text-gray-500 font-medium">
-                              Opções de <strong>Importar Planilhas</strong> e <strong>Usuários & Perfis</strong> são exclusivas para cargos de <strong>Gerente</strong> ou superior.
+                              Acesso a <strong>Usuários & Perfis</strong> é exclusivo para cargos de <strong>Gerente</strong> ou superior.
                             </p>
                           </div>
                         )}

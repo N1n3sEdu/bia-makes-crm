@@ -11,14 +11,14 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Montserrat', 'Plus Jakarta Sans', 'Outfit', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-montserrat), 'Plus Jakarta Sans', var(--font-outfit), 'Segoe UI', system-ui, -apple-system, sans-serif;
     letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, .font-serif, .font-display {
-    font-family: 'Outfit', 'Montserrat', 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font-outfit), var(--font-montserrat), 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
 }
@@ -39,18 +39,37 @@
   background: #C69A76;
 }
 
-/* Metallic shimmer effect */
+/* Barra de rolagem interna de modais respeitando o template e os cantos da caixa */
+.modal-content-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #E9D9CD transparent;
+}
+.modal-content-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 10px 0;
+}
+.modal-content-scroll::-webkit-scrollbar-thumb {
+  background: #E9D9CD;
+  border-radius: 9999px;
+}
+.modal-content-scroll::-webkit-scrollbar-thumb:hover {
+  background: #C69A76;
+}
+
+
+/* Metallic shimmer skeleton effect */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 .shimmer-gold {
-  background: linear-gradient(90deg, #C69A76 0%, #F5DDE5 50%, #C69A76 100%);
+  background: linear-gradient(90deg, #F4ECE6 0%, #FAF0F4 40%, #E5CBB7 50%, #FAF0F4 60%, #F4ECE6 100%);
   background-size: 200% 100%;
-  animation: shimmer 4s infinite linear;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.8s infinite linear;
 }
 
 /* Ocultar o botao nativo de revelacao de senha do Microsoft Edge / Internet Explorer */

@@ -14,7 +14,6 @@ import {
   Check, 
   Filter, 
   Truck,
-  Share2,
   Instagram,
   ExternalLink,
   Copy,
@@ -554,24 +553,28 @@ export function ProductsManager({
       {/* ADD / EDIT PRODUCT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 relative shadow-2xl border border-[#E9D9CD] max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full relative shadow-2xl border border-[#E9D9CD] max-h-[90vh] flex flex-col overflow-hidden">
             
-            <div className="flex items-center justify-between pb-4 border-b border-[#E9D9CD]">
+            {/* Header Fixo do Modal */}
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-[#E9D9CD] bg-white shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#C69A76]" />
                 <h3 className="font-display text-xl font-bold text-[#39313A]">
-                  {editingProduct ? "Editar Produto, Frete & Redes" : "Novo Cadastro de Produto"}
+                  {editingProduct ? "Editar Produto" : "Novo Cadastro de Produto"}
                 </h3>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer transition-colors"
+                title="Fechar formulário"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-5 pt-4 text-xs">
+            {/* Conteúdo Rolável do Formulário */}
+            <form id="product-modal-form" onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs modal-content-scroll">
               
               {/* Row 1: Name & Brand */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -757,81 +760,6 @@ export function ProductsManager({
                 </div>
               </div>
 
-              {/* NEW SECTION: SOCIAL NETWORKS & EMBEDDED STOCK/FREIGHT LINKS */}
-              <div className="bg-gradient-to-r from-[#FAF0F4] to-[#EDE5F3]/50 p-4 rounded-2xl border border-[#E9D9CD] space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="font-bold text-[#7A3F51] flex items-center gap-1.5 text-sm">
-                      <Share2 className="w-4 h-4 text-[#9C5B6F]" />
-                      <span>Links das Redes Sociais & Marketplaces (Com Estoque e Frete Embutido)</span>
-                    </span>
-                    <p className="text-[10px] text-[#39313A]/70">
-                      Vincule onde este produto está publicado. O sistema gerará o link unificado com estoque em tempo real e valor de frete embutido.
-                    </p>
-                  </div>
-                  <label className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-[#E9D9CD] cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={formEmbedStockAndShipping}
-                      onChange={(e) => setFormEmbedStockAndShipping(e.target.checked)}
-                      className="rounded text-[#9C5B6F]"
-                    />
-                    <span className="text-[10px] font-bold text-[#7A3F51]">Embutir Estoque + Frete</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-[#39313A] mb-1 text-[11px]">
-                      Link do Post / Reel no Instagram (@biamakeoficial_)
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://instagram.com/p/..."
-                      value={formInstagramUrl}
-                      onChange={(e) => setFormInstagramUrl(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-[#39313A] mb-1 text-[11px]">
-                      Link do Produto na Shopee
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://shopee.com.br/..."
-                      value={formShopeeUrl}
-                      onChange={(e) => setFormShopeeUrl(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-[#39313A] mb-1 text-[11px]">
-                      Link do Produto no Mercado Livre
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://produto.mercadolivre.com.br/..."
-                      value={formMercadoLivreUrl}
-                      onChange={(e) => setFormMercadoLivreUrl(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-[#39313A] mb-1 text-[11px]">
-                      Link do Produto no TikTok Shop
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://tiktok.com/@biamakeoficial_/..."
-                      value={formTiktokUrl}
-                      onChange={(e) => setFormTiktokUrl(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Row 5: Variations (Tons & Swatches) - Oculto para Kits de Presente, Pincéis & Acessórios, Skincare e Box Fechado */}
               {hasVariations(formCategory) && (
                 <div className="bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD] space-y-3">
@@ -975,26 +903,26 @@ export function ProductsManager({
                   className="w-full px-3 py-2 rounded-xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
                 />
               </div>
-
-              {/* Submit Buttons */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#E9D9CD]">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 rounded-full border border-[#E9D9CD] text-gray-600 font-bold hover:bg-gray-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white font-bold shadow-md flex items-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}</span>
-                </button>
-              </div>
-
             </form>
+
+            {/* Rodapé Fixo do Modal que segue o template da caixa */}
+            <div className="flex justify-end items-center gap-3 px-6 py-4 border-t border-[#E9D9CD] bg-[#FAF7F8] shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 rounded-full border border-[#E9D9CD] text-gray-600 font-bold hover:bg-white transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="product-modal-form"
+                className="px-6 py-2.5 rounded-full bg-[#7A3F51] hover:bg-[#5E303E] text-white font-bold shadow-md flex items-center gap-2 cursor-pointer transition-all text-xs"
+              >
+                <Check className="w-4 h-4" />
+                <span>{editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}</span>
+              </button>
+            </div>
 
           </div>
         </div>

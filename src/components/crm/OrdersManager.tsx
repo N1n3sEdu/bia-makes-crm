@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { 
   Search, 
-  Eye,
   X,
   RotateCcw,
   PackageCheck,
@@ -610,18 +609,6 @@ export function OrdersManager({
                     <option value="DEVOLUCAO">DEVOLUÇÃO</option>
                     <option value="CANCELADO">CANCELADO</option>
                   </select>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewingOrder(order);
-                    }}
-                    className="p-2 text-[#7A3F51] hover:bg-[#FAF0F4] border border-[#E9D9CD] rounded-xl transition-all cursor-pointer shadow-2xs group-hover:bg-[#FAF0F4] group-hover:border-[#9C5B6F]"
-                    title="Ver Ficha Completa do Pedido"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
                 </div>
 
               </div>

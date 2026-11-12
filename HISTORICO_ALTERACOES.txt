@@ -6,6 +6,35 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #031
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 14:06:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"remova o icone do olho"
+
+MOTIVO DO AJUSTE:
+Como a linha inteira do pedido já é clicável para abrir a ficha completa de expedição,
+o botão residual com o ícone de olho posicionado ao lado do seletor de status foi removido,
+proporcionando um layout mais limpo e direto na Central de Pedidos.
+
+ARQUIVOS MODIFICADOS:
+- src/components/crm/OrdersManager.tsx (removido o botão de olho e o import do componente Eye)
+- src/components/storefront/Storefront.tsx (limpeza de tags duplicadas no rodapé)
+
+COMO TESTAR:
+1. Acesse o CRM em /admin e vá na aba 'Pedidos & Vendas'.
+2. Observe que na coluna da direita há apenas o seletor de status do pedido (sem o botão de olho).
+3. Clique em qualquer parte do card do pedido e confirme que a ficha completa continua abrindo instantaneamente.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/components/crm/OrdersManager.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #030
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

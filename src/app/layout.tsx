@@ -1,11 +1,25 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { Montserrat, Outfit } from "next/font/google";
 import "./globals.css";
 import { BiaMakesProvider } from "@/context/BiaMakesContext";
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
 import { CookieConsentBanner } from "@/components/analytics/CookieConsentBanner";
 
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-montserrat",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-outfit",
+});
+
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://biamakes.netlify.app"),
   title: "Bia Makes — Loja Oficial de Maquiagem & Cosméticos",
   description: "Loja especializada em maquiagem feminina de alta performance — @biamakeoficial_",
   icons: {
@@ -20,16 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..800;1,300..800&family=Outfit:wght@300..800&display=swap" 
-          rel="stylesheet" 
-        />
-      </head>
-      <body className="min-h-screen bg-[#FAF7F8] text-[#39313A] antialiased selection:bg-[#F5DDE5] selection:text-[#7A3F51]">
+    <html lang="pt-BR" className={`${montserrat.variable} ${outfit.variable}`}>
+      <body className="min-h-screen bg-bia-offwhite text-bia-text font-sans antialiased selection:bg-bia-pink selection:text-bia-marsala-dark">
         <BiaMakesProvider>
           <Suspense fallback={null}>
             <AnalyticsTracker />

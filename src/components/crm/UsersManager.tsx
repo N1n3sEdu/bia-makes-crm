@@ -1,19 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { 
   UserPlus, 
-  Users, 
   Shield, 
   Edit, 
   Trash2, 
   Check, 
   X, 
-  KeyRound, 
   UserCheck, 
-  Lock,
-  Sparkles,
   CheckCircle2,
   XCircle
 } from "lucide-react";
@@ -96,24 +92,22 @@ export function UsersManager({
     setIsModalOpen(true);
   };
 
+  const shortcutsRef = useRef({
+    onNewItem: () => handleOpenAdd(),
+    onSaveForm: () => {},
+  });
+
   // Global shortcuts integration: Alt+N (shortcut-new-item) and Alt+S (shortcut-save-form)
   useEffect(() => {
-    const onNewItem = () => {
-      handleOpenAdd();
-    };
-    const onSaveForm = () => {
-      if (isModalOpen) {
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        handleSave(fakeEvent);
-      }
-    };
+    const onNewItem = () => shortcutsRef.current.onNewItem();
+    const onSaveForm = () => shortcutsRef.current.onSaveForm();
     window.addEventListener("shortcut-new-item", onNewItem);
     window.addEventListener("shortcut-save-form", onSaveForm);
     return () => {
       window.removeEventListener("shortcut-new-item", onNewItem);
       window.removeEventListener("shortcut-save-form", onSaveForm);
     };
-  });
+  }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +149,18 @@ export function UsersManager({
     }
     setIsModalOpen(false);
   };
+
+  useEffect(() => {
+    shortcutsRef.current = {
+      onNewItem: () => handleOpenAdd(),
+      onSaveForm: () => {
+        if (isModalOpen) {
+          const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+          handleSave(fakeEvent);
+        }
+      },
+    };
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

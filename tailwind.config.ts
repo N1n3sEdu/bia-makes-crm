@@ -46,9 +46,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ['Outfit', 'Montserrat', 'Plus Jakarta Sans', 'Segoe UI', 'system-ui', 'sans-serif'],
-        sans: ['Montserrat', 'Plus Jakarta Sans', 'Outfit', 'Segoe UI', 'system-ui', 'sans-serif'],
-        display: ['Outfit', 'Montserrat', 'Segoe UI', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-outfit)', 'var(--font-montserrat)', 'Plus Jakarta Sans', 'Segoe UI', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-montserrat)', 'Plus Jakarta Sans', 'var(--font-outfit)', 'Segoe UI', 'system-ui', 'sans-serif'],
+        display: ['var(--font-outfit)', 'var(--font-montserrat)', 'Segoe UI', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         'soft': '0 4px 20px -2px rgba(156, 91, 111, 0.08)',

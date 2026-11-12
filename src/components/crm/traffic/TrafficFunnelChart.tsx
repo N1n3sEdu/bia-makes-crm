@@ -19,8 +19,6 @@ const STEP_ICONS = {
 export function TrafficFunnelChart({ steps }: TrafficFunnelChartProps) {
   if (!steps || steps.length === 0) return null;
 
-  const firstSessions = steps[0]?.sessions || 0;
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">

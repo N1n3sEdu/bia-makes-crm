@@ -12,7 +12,7 @@ const ALT_MODULE_MAP: Record<
   "2": { tab: "products", label: "Produtos, Frete & Redes", route: "/admin" },
   "3": { tab: "stock", label: "Estoque Central (Kardex)", route: "/admin" },
   "4": { tab: "orders", label: "Pedidos & Vendas", route: "/admin" },
-  "5": { tab: "marketplaces", label: "Marketplaces & Canais", route: "/admin" },
+  "5": { tab: "traffic", label: "Tráfego & Origens", route: "/admin" },
   "6": { tab: "financial", label: "Financeiro (DRE)", route: "/admin" },
   "7": { tab: "import", label: "Importar Planilhas", route: "/admin" },
   "8": { tab: "users", label: "Usuários & Perfis", route: "/admin" },

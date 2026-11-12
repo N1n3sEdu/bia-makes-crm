@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { 
   X, 
   Check, 
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
   Copy, 
   CreditCard, 
   QrCode, 
@@ -18,14 +21,21 @@ import {
   ArrowRight, 
   ArrowLeft,
   Sparkles,
-  ShoppingBag,
-  ExternalLink,
-  Lock
+  ShoppingBag
 } from "lucide-react";
 import { CartItem, useBiaMakes } from "@/context/BiaMakesContext";
 import { STORE_CONFIG } from "@/lib/data";
-import { formatCurrency } from "@/lib/utils";
-import { Order } from "@/types";
+import {
+  BRAZIL_STATES,
+  CepInfo,
+  calculateCarrierQuotesByCep,
+  fetchCepInfo,
+  fetchCitiesByState,
+  formatCepMask,
+  formatCurrency,
+  validateBrazilianMobilePhone,
+} from "@/lib/utils";
+import { Order, ShippingCarrierId, ShippingQuoteOption } from "@/types";
 import { trackEvent } from "@/lib/analytics/track";
 
 interface CheckoutModalProps {
@@ -33,9 +43,11 @@ interface CheckoutModalProps {
   onClose: () => void;
   items: CartItem[];
   subtotal: number;
-  shippingAmount: number;
   discountAmount: number;
   total: number;
+  initialCep?: string;
+  initialCepInfo?: CepInfo | null;
+  initialCarrierId?: ShippingCarrierId | null;
   onOrderCreated?: (order: Order) => void;
 }
 
@@ -44,9 +56,11 @@ export function CheckoutModal({
   onClose,
   items,
   subtotal,
-  shippingAmount,
   discountAmount,
   total,
+  initialCep,
+  initialCepInfo,
+  initialCarrierId,
   onOrderCreated,
 }: CheckoutModalProps) {
   const { createStorefrontOrder } = useBiaMakes();
@@ -66,6 +80,19 @@ export function CheckoutModal({
   const [city, setCity] = useState("");
   const [stateUf, setStateUf] = useState("SP");
 
+  // Estados de validação e autopreenchimento
+  const numberInputRef = useRef<HTMLInputElement>(null);
+  const cepLookupIdRef = useRef(0);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const [cepFoundInfo, setCepFoundInfo] = useState<string | null>(null);
+  const [cities, setCities] = useState<string[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[]>([]);
+  const [selectedCarrierId, setSelectedCarrierId] = useState<ShippingCarrierId | null>(null);
+
   // Método de pagamento
   const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARTAO">("PIX");
   const [installments, setInstallments] = useState<number>(1);
@@ -76,58 +103,247 @@ export function CheckoutModal({
 
   // Feedback do PIX
   const [pixCopied, setPixCopied] = useState(false);
+  const [pixTxSuffix, setPixTxSuffix] = useState(1000);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const wasOpenRef = useRef(false);
 
+  // Carrega todos os municípios do Estado (UF) ativo via IBGE com cache
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen || !stateUf) return;
+    let cancelled = false;
+    setLoadingCities(true);
+
+    fetchCitiesByState(stateUf)
+      .then((list) => {
+        if (cancelled) return;
+        setCities(list);
+        setCity((currentCity) => {
+          if (!currentCity) return "";
+          const exact = list.find(
+            (c) => c.toLocaleLowerCase("pt-BR") === currentCity.toLocaleLowerCase("pt-BR")
+          );
+          return exact || currentCity;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCities(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, stateUf]);
+
+  const cityOptions = useMemo(() => {
+    if (!city) return cities;
+    const exists = cities.some(
+      (c) => c.toLocaleLowerCase("pt-BR") === city.toLocaleLowerCase("pt-BR")
+    );
+    if (exists) return cities;
+    return [city, ...cities].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [cities, city]);
+
+  const phoneDigits = customerPhone.replace(/\D/g, "");
+  const phoneValidation = useMemo(
+    () => validateBrazilianMobilePhone(customerPhone),
+    [customerPhone]
+  );
+  const showPhoneFeedback = phoneDigits.length > 0 || phoneTouched;
+
+  const cleanCepDigits = cep.replace(/\D/g, "");
+  const hasRepeatedCep =
+    cleanCepDigits.length === 8 && /^(\d)\1{7}$/.test(cleanCepDigits);
+  const isCepInvalid = Boolean(cepError) || hasRepeatedCep;
+  const isStep1Blocked =
+    !phoneValidation.valid || isCepInvalid || cepLoading;
+
+  const itemsCount = useMemo(
+    () => items.reduce((sum, it) => sum + it.quantity, 0),
+    [items]
+  );
+  const hasAllItemsFreeShipping = useMemo(
+    () => items.length > 0 && items.every((it) => Boolean(it.product.freeShipping)),
+    [items]
+  );
+
+  // Sincroniza CEP e cotações vindas da Sacola ou página do produto e dispara tracking apenas ao abrir o modal
+  useEffect(() => {
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+
+    if (justOpened) {
       trackEvent("begin_checkout", {
         value_cents: Math.round(total * 100),
       });
+      setPixTxSuffix(Math.floor(1000 + Math.random() * 9000));
+
+      if (initialCepInfo && initialCep) {
+        const cleanInit = initialCep.replace(/\D/g, "");
+        if (cleanInit.length === 8 && !/^(\d)\1{7}$/.test(cleanInit)) {
+          setCep(formatCepMask(cleanInit));
+          setCepError(null);
+          if (initialCepInfo.logradouro) setStreet(initialCepInfo.logradouro);
+          if (initialCepInfo.bairro) setNeighborhood(initialCepInfo.bairro);
+          const targetUf = (initialCepInfo.uf || "SP").toUpperCase();
+          setStateUf(targetUf);
+          if (initialCepInfo.localidade) setCity(initialCepInfo.localidade);
+          setCepFoundInfo(
+            initialCepInfo.localidade ? `${initialCepInfo.localidade} - ${targetUf}` : `UF ${targetUf}`
+          );
+
+          const quotes = calculateCarrierQuotesByCep(
+            initialCepInfo,
+            itemsCount,
+            subtotal,
+            hasAllItemsFreeShipping
+          );
+          setShippingQuotes(quotes);
+          const validCarrier =
+            initialCarrierId && quotes.some((q) => q.carrierId === initialCarrierId)
+              ? initialCarrierId
+              : quotes[0]?.carrierId || null;
+          setSelectedCarrierId(validCarrier);
+        }
+      }
+    } else if (!isOpen && createdOrder) {
+      setStep(1);
+      setCreatedOrder(null);
     }
-  }, [isOpen, total]);
+  }, [
+    isOpen,
+    total,
+    createdOrder,
+    initialCep,
+    initialCepInfo,
+    initialCarrierId,
+    itemsCount,
+    subtotal,
+    hasAllItemsFreeShipping,
+  ]);
+
+  const selectedQuote = useMemo(
+    () =>
+      shippingQuotes.find((q) => q.carrierId === selectedCarrierId) ||
+      shippingQuotes[0] ||
+      null,
+    [shippingQuotes, selectedCarrierId]
+  );
+  // Nunca cobrar frete antes de haver uma cotação válida pelo CEP
+  const effectiveShippingAmount = selectedQuote ? selectedQuote.customerPrice : 0;
+  const effectiveTotal = Math.max(
+    0,
+    Math.round((subtotal - discountAmount + effectiveShippingAmount) * 100) / 100
+  );
 
   if (!isOpen) return null;
 
-  // Máscara de Telefone
+  // Máscara progressiva de Telefone/WhatsApp
   const handlePhoneChange = (val: string) => {
-    let clean = val.replace(/\D/g, "");
-    if (clean.length > 11) clean = clean.slice(0, 11);
-    if (clean.length <= 10) {
-      clean = clean.replace(/^(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
+    const clean = val.replace(/\D/g, "").slice(0, 11);
+    let formatted = clean;
+    if (clean.length <= 2) {
+      formatted = clean;
+    } else if (clean.length <= 6) {
+      formatted = `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+    } else if (clean.length <= 10) {
+      formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
     } else {
-      clean = clean.replace(/^(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
+      formatted = `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
     }
-    setCustomerPhone(clean);
+    setCustomerPhone(formatted);
+    setFormError(null);
   };
 
-  // Máscara de CEP e preenchimento inteligente
-  const handleCepChange = (val: string) => {
-    let clean = val.replace(/\D/g, "");
-    if (clean.length > 8) clean = clean.slice(0, 8);
-    const formatted = clean.replace(/^(\d{5})(\d{0,3})/, "$1-$2");
-    setCep(formatted);
+  // Troca manual do Estado (UF) no <select>
+  const handleStateChange = (newUf: string) => {
+    const normalized = newUf.toUpperCase();
+    setStateUf(normalized);
+    setCity("");
+    setFormError(null);
+  };
 
-    if (clean.length === 8) {
-      // Simulação rápida de preenchimento inteligente
-      if (clean.startsWith("01") || clean.startsWith("02") || clean.startsWith("03")) {
-        setStreet("Av. Paulista");
-        setNeighborhood("Bela Vista");
-        setCity("São Paulo");
-        setStateUf("SP");
-      } else if (clean.startsWith("20") || clean.startsWith("22")) {
-        setStreet("Av. Atlântica");
-        setNeighborhood("Copacabana");
-        setCity("Rio de Janeiro");
-        setStateUf("RJ");
-      } else if (clean.startsWith("30")) {
-        setStreet("Rua da Bahia");
-        setNeighborhood("Centro");
-        setCity("Belo Horizonte");
-        setStateUf("MG");
-      } else {
-        setCity("São Paulo");
-        setStateUf("SP");
+  // Máscara de CEP (00000-000) e consulta real ViaCEP + BrasilAPI + IBGE Cidades
+  const handleCepChange = async (val: string) => {
+    const clean = val.replace(/\D/g, "").slice(0, 8);
+    setCep(formatCepMask(clean));
+    setCepError(null);
+    setCepFoundInfo(null);
+    setFormError(null);
+
+    if (clean.length < 8) {
+      cepLookupIdRef.current += 1;
+      setCepLoading(false);
+      setShippingQuotes([]);
+      setSelectedCarrierId(null);
+      return;
+    }
+
+    const currentLookupId = ++cepLookupIdRef.current;
+    setCepLoading(true);
+
+    try {
+      const info = await fetchCepInfo(clean);
+      if (cepLookupIdRef.current !== currentLookupId) return;
+
+      if (info.logradouro) setStreet(info.logradouro);
+      if (info.bairro) setNeighborhood(info.bairro);
+
+      const quotes = calculateCarrierQuotesByCep(
+        info,
+        itemsCount,
+        subtotal,
+        hasAllItemsFreeShipping
+      );
+      setShippingQuotes(quotes);
+      setSelectedCarrierId(quotes[0]?.carrierId || null);
+
+      const targetUf = (info.uf || "SP").toUpperCase();
+      const targetCity = (info.localidade || "").trim();
+
+      setLoadingCities(true);
+      const ufCities = await fetchCitiesByState(targetUf);
+      if (cepLookupIdRef.current !== currentLookupId) return;
+
+      let selectedCity = targetCity;
+      let mergedCities = ufCities;
+      if (targetCity) {
+        const matched = ufCities.find(
+          (c) => c.toLocaleLowerCase("pt-BR") === targetCity.toLocaleLowerCase("pt-BR")
+        );
+        if (matched) {
+          selectedCity = matched;
+        } else {
+          mergedCities = [targetCity, ...ufCities].sort((a, b) =>
+            a.localeCompare(b, "pt-BR")
+          );
+        }
+      }
+
+      setStateUf(targetUf);
+      setCities(mergedCities);
+      setCity(selectedCity);
+      setLoadingCities(false);
+      setCepFoundInfo(
+        selectedCity ? `${selectedCity} - ${targetUf}` : `UF ${targetUf}`
+      );
+
+      requestAnimationFrame(() => {
+        numberInputRef.current?.focus();
+      });
+    } catch (err) {
+      if (cepLookupIdRef.current !== currentLookupId) return;
+      const message =
+        err instanceof Error
+          ? err.message
+          : "CEP inválido ou não encontrado nos Correios.";
+      setCepError(message);
+      setCepFoundInfo(null);
+      setShippingQuotes([]);
+      setSelectedCarrierId(null);
+    } finally {
+      if (cepLookupIdRef.current === currentLookupId) {
+        setCepLoading(false);
       }
     }
   };
@@ -150,26 +366,51 @@ export function CheckoutModal({
   // Validação da Etapa 1
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneTouched(true);
+    setFormError(null);
+
     if (!customerName.trim()) {
-      alert("Por favor, informe seu nome completo.");
+      setFormError("Por favor, informe seu nome completo.");
       return;
     }
-    if (customerPhone.replace(/\D/g, "").length < 10) {
-      alert("Por favor, informe um WhatsApp válido com DDD.");
+
+    const phoneCheck = validateBrazilianMobilePhone(customerPhone);
+    if (!phoneCheck.valid) {
+      setFormError(phoneCheck.error || "Por favor, informe um WhatsApp válido com DDD.");
       return;
     }
-    if (!street.trim() || !number.trim() || !city.trim()) {
-      alert("Por favor, preencha o endereço completo para entrega.");
+
+    if (cleanCepDigits.length !== 8) {
+      setCepError("Digite um CEP válido com 8 dígitos.");
+      setFormError("Por favor, informe um CEP válido com 8 dígitos.");
       return;
     }
+
+    if (/^(\d)\1{7}$/.test(cleanCepDigits)) {
+      const msg = "CEP inválido (dígitos repetidos). Informe um CEP real.";
+      setCepError(msg);
+      setFormError(msg);
+      return;
+    }
+
+    if (cepError) {
+      setFormError(cepError);
+      return;
+    }
+
+    if (!street.trim() || !number.trim() || !neighborhood.trim() || !stateUf.trim() || !city.trim()) {
+      setFormError("Por favor, preencha CEP, Rua, Número, Bairro, Estado e Cidade para entrega.");
+      return;
+    }
+
     setStep(2);
   };
 
   // Código PIX Copia e Cola gerado para o pedido
-  const pixMockCode = `00020126580014br.gov.bcb.pix0136${STORE_CONFIG.supportEmail}5204000053039865405${total.toFixed(2)}5802BR5916BIA MAKES BEAUTY6009SAO PAULO62140510BM${Math.floor(1000 + Math.random() * 9000)}6304`;
+  const pixMockCode = `00020126580014br.gov.bcb.pix0136${STORE_CONFIG.supportEmail}5204000053039865405${effectiveTotal.toFixed(2)}5802BR5916BIA MAKES BEAUTY6009SAO PAULO62140510BM${pixTxSuffix}6304`;
 
   const handleCopyPix = () => {
-    navigator.clipboard.writeText(pixMockCode);
+    navigator.clipboard?.writeText(pixMockCode).catch(() => {});
     setPixCopied(true);
     setTimeout(() => setPixCopied(false), 2500);
   };
@@ -185,7 +426,13 @@ export function CheckoutModal({
 
     try {
       const fullAddress = `${street}, ${number}${complement ? ` - ${complement}` : ""}, ${neighborhood} - ${city}/${stateUf} (CEP: ${cep})`;
-      
+      const fallbackCompanyShip = Math.round((14.9 + Math.max(0, itemsCount - 1) * 1.5) * 100) / 100;
+      const companyShippingCost = selectedQuote
+        ? selectedQuote.companyCost
+        : effectiveShippingAmount > 0
+          ? effectiveShippingAmount
+          : fallbackCompanyShip;
+
       const order = createStorefrontOrder({
         customerName,
         customerPhone,
@@ -193,7 +440,12 @@ export function CheckoutModal({
         shippingAddress: fullAddress,
         paymentMethod: paymentMethod === "PIX" ? "PIX" : "CARTAO",
         channel: "SITE",
-        shippingAmount,
+        shippingAmount: effectiveShippingAmount,
+        companyShippingCost,
+        shippingCarrier: selectedQuote?.carrierName || "Correios PAC",
+        shippingServiceDays: selectedQuote?.deliveryDays,
+        shippingCep: cep,
+        isFreeShippingSubsidized: effectiveShippingAmount === 0,
         discountAmount,
         items,
       });
@@ -203,8 +455,8 @@ export function CheckoutModal({
         onOrderCreated(order);
       }
       setStep(3);
-    } catch (err: any) {
-      alert(err?.message || "Erro ao processar pedido.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Erro ao processar pedido.");
     } finally {
       setIsSubmitting(false);
     }
@@ -224,15 +476,20 @@ export function CheckoutModal({
       itemsList += `${idx + 1}. *${it.productName}*${it.variationName ? ` (${it.variationName})` : ""} - ${it.quantity}x ${formatCurrency(it.price)}\n`;
     });
 
+    const carrierInfo = createdOrder.shippingCarrier
+      ? ` (${createdOrder.shippingCarrier}${createdOrder.shippingServiceDays ? ` · ${createdOrder.shippingServiceDays}` : ""})`
+      : "";
+    const shipVal = typeof createdOrder.shippingAmount === "number" ? createdOrder.shippingAmount : effectiveShippingAmount;
+
     const msg =
       `Olá Bia Makes! 💕 Acabei de realizar meu pedido pelo site e estou enviando a confirmação:\n\n` +
       `💄 *PEDIDO #${createdOrder.orderNumber}*\n` +
       `👤 *Cliente:* ${createdOrder.customerName}\n` +
       `📱 *WhatsApp:* ${createdOrder.customerPhone}\n` +
       `📍 *Endereço de Entrega:* ${createdOrder.shippingAddress}\n\n` +
-      `🛍️ *Itens Reservados:*\n${itemsList}\n` +
+      `🛍️ *Itens do Pedido:*\n${itemsList}\n` +
       `💳 *Forma de Pagamento:* ${createdOrder.paymentMethod}\n` +
-      `🚚 *Frete:* ${shippingAmount === 0 ? "GRÁTIS" : formatCurrency(shippingAmount)}\n` +
+      `🚚 *Frete${carrierInfo}:* ${shipVal === 0 ? "GRÁTIS" : formatCurrency(shipVal)}\n` +
       `✨ *TOTAL PAGO:* ${formatCurrency(createdOrder.totalAmount)}\n\n` +
       `Podem confirmar a expedição dos meus cosméticos? Muito obrigada! 💕`;
 
@@ -258,7 +515,7 @@ export function CheckoutModal({
               </h3>
               <p className="text-[11px] text-[#39313A]/70 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                <span>Ambiente Criptografado & Estoque Reservado em Tempo Real</span>
+                <span>Ambiente Criptografado & Estoque Confirmado em Tempo Real</span>
               </p>
             </div>
           </div>
@@ -307,16 +564,32 @@ export function CheckoutModal({
               <div className="p-3 rounded-2xl bg-[#FAF0F4] border border-[#E9D9CD] flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-[#7A3F51]">
-                    {items.reduce((sum, it) => sum + it.quantity, 0)} {items.reduce((sum, it) => sum + it.quantity, 0) === 1 ? "item na sacola" : "itens na sacola"}
+                    {itemsCount} {itemsCount === 1 ? "item na sacola" : "itens na sacola"}
                   </span>
                   <div className="text-[10px] text-gray-500">
-                    Frete: {shippingAmount === 0 ? "GRÁTIS" : formatCurrency(shippingAmount)}
+                    {selectedQuote ? (
+                      <>
+                        Frete ({selectedQuote.carrierName}):{" "}
+                        <strong className={effectiveShippingAmount === 0 ? "text-emerald-700" : "text-[#39313A]"}>
+                          {effectiveShippingAmount === 0 ? "GRÁTIS" : formatCurrency(effectiveShippingAmount)}
+                        </strong>
+                      </>
+                    ) : (
+                      <>
+                        Frete:{" "}
+                        <span className="font-semibold text-[#7A3F51]">
+                          {subtotal >= 150 || hasAllItemsFreeShipping
+                            ? "Frete Grátis (informe seu CEP)"
+                            : "A calcular pelo CEP"}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-gray-500 block">Total Previsto</span>
                   <span className="text-base font-extrabold text-[#7A3F51]">
-                    {formatCurrency(total)}
+                    {formatCurrency(effectiveTotal)}
                   </span>
                 </div>
               </div>
@@ -346,14 +619,47 @@ export function CheckoutModal({
                       <Phone className="w-3 h-3 text-[#25D366]" />
                       <span>WhatsApp (DDD + Número) *</span>
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="(11) 98765-4321"
-                      value={customerPhone}
-                      onChange={(e) => handlePhoneChange(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold"
-                    />
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        required
+                        placeholder="(11) 98765-4321"
+                        value={customerPhone}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        onBlur={() => setPhoneTouched(true)}
+                        aria-invalid={showPhoneFeedback && !phoneValidation.valid}
+                        className={`w-full px-3.5 py-2 pr-8 text-xs bg-white rounded-xl border focus:outline-none font-semibold transition-colors ${
+                          showPhoneFeedback
+                            ? phoneValidation.valid
+                              ? "border-emerald-500 focus:border-emerald-600"
+                              : "border-red-500 focus:border-red-600 bg-red-50/30"
+                            : "border-[#E9D9CD] focus:border-[#9C5B6F]"
+                        }`}
+                      />
+                      {showPhoneFeedback && phoneValidation.valid && (
+                        <CheckCircle2
+                          className="w-4 h-4 text-emerald-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-label="WhatsApp válido"
+                        />
+                      )}
+                      {showPhoneFeedback && !phoneValidation.valid && (
+                        <AlertCircle
+                          className="w-4 h-4 text-red-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                    {showPhoneFeedback && !phoneValidation.valid && (
+                      <p className="text-[10px] font-semibold text-red-600 leading-snug">
+                        {phoneValidation.error}
+                      </p>
+                    )}
+                    {showPhoneFeedback && phoneValidation.valid && (
+                      <p className="text-[10px] font-semibold text-emerald-700 leading-snug">
+                        WhatsApp válido para confirmação do pedido.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -381,15 +687,55 @@ export function CheckoutModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-[#39313A]">CEP *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="00000-000"
-                      value={cep}
-                      onChange={(e) => handleCepChange(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold"
-                    />
+                    <div className="flex items-center justify-between gap-1">
+                      <label className="text-[11px] font-bold text-[#39313A]">CEP *</label>
+                      {cepLoading && (
+                        <span className="text-[10px] font-semibold text-[#9C5B6F] flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Buscando endereço...
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        placeholder="00000-000"
+                        value={cep}
+                        onChange={(e) => handleCepChange(e.target.value)}
+                        aria-invalid={isCepInvalid}
+                        className={`w-full px-3.5 py-2 pr-8 text-xs bg-white rounded-xl border focus:outline-none font-semibold transition-colors ${
+                          isCepInvalid
+                            ? "border-red-500 focus:border-red-600 bg-red-50/30"
+                            : cepFoundInfo && !cepLoading
+                              ? "border-emerald-500 focus:border-emerald-600"
+                              : "border-[#E9D9CD] focus:border-[#9C5B6F]"
+                        }`}
+                      />
+                      {cepFoundInfo && !cepLoading && !isCepInvalid && (
+                        <CheckCircle2
+                          className="w-4 h-4 text-emerald-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {isCepInvalid && !cepLoading && (
+                        <AlertCircle
+                          className="w-4 h-4 text-red-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                    {(cepError || hasRepeatedCep) && (
+                      <p className="text-[10px] font-semibold text-red-600 leading-snug">
+                        {cepError || "CEP inválido (dígitos repetidos). Informe um CEP real."}
+                      </p>
+                    )}
+                    {cepFoundInfo && !cepLoading && !cepError && !hasRepeatedCep && (
+                      <p className="text-[10px] font-semibold text-emerald-700 leading-snug">
+                        CEP localizado: {cepFoundInfo}
+                      </p>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2 space-y-1">
@@ -399,7 +745,10 @@ export function CheckoutModal({
                       required
                       placeholder="Rua Oscar Freire"
                       value={street}
-                      onChange={(e) => setStreet(e.target.value)}
+                      onChange={(e) => {
+                        setStreet(e.target.value);
+                        setFormError(null);
+                      }}
                       className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
                     />
                   </div>
@@ -407,11 +756,15 @@ export function CheckoutModal({
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-[#39313A]">Número *</label>
                     <input
+                      ref={numberInputRef}
                       type="text"
                       required
                       placeholder="1200"
                       value={number}
-                      onChange={(e) => setNumber(e.target.value)}
+                      onChange={(e) => {
+                        setNumber(e.target.value);
+                        setFormError(null);
+                      }}
                       className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
                     />
                   </div>
@@ -434,42 +787,171 @@ export function CheckoutModal({
                       required
                       placeholder="Jardins"
                       value={neighborhood}
-                      onChange={(e) => setNeighborhood(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold text-[#39313A]">Cidade *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="São Paulo"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      onChange={(e) => {
+                        setNeighborhood(e.target.value);
+                        setFormError(null);
+                      }}
                       className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F]"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-[#39313A]">Estado (UF) *</label>
-                    <input
-                      type="text"
+                    <label htmlFor="checkout-state-uf" className="text-[11px] font-bold text-[#39313A]">
+                      Estado (UF) *
+                    </label>
+                    <select
+                      id="checkout-state-uf"
                       required
-                      placeholder="SP"
-                      maxLength={2}
                       value={stateUf}
-                      onChange={(e) => setStateUf(e.target.value.toUpperCase())}
-                      className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] uppercase font-bold text-center"
-                    />
+                      onChange={(e) => handleStateChange(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold text-[#39313A]"
+                    >
+                      {BRAZIL_STATES.map((st) => (
+                        <option key={st.uf} value={st.uf}>
+                          {st.uf} - {st.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <label htmlFor="checkout-city" className="text-[11px] font-bold text-[#39313A]">
+                        Cidade *
+                      </label>
+                      {loadingCities && (
+                        <span className="text-[10px] font-semibold text-[#9C5B6F] flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Carregando cidades...
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      id="checkout-city"
+                      required
+                      value={city}
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        setFormError(null);
+                      }}
+                      disabled={loadingCities && cityOptions.length === 0}
+                      className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-semibold text-[#39313A] disabled:bg-gray-50 disabled:text-gray-400"
+                    >
+                      <option value="">
+                        {loadingCities
+                          ? `Carregando municípios de ${stateUf}...`
+                          : `Selecione a cidade (${cityOptions.length} disponíveis)...`}
+                      </option>
+                      {cityOptions.map((cityName) => (
+                        <option key={cityName} value={cityName}>
+                          {cityName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
 
+              {/* Opções de Frete / Transportadora para o CEP */}
+              {shippingQuotes.length === 0 ? (
+                <div className="p-3 rounded-2xl bg-[#FAF7F8] border border-dashed border-[#E9D9CD] text-[11px] text-[#39313A]/75 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#9C5B6F] shrink-0" />
+                  <span>
+                    Informe seu <strong>CEP com 8 dígitos</strong> acima para calcularmos automaticamente as opções de transportadora, prazo e valor do frete.
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-2.5 pt-2 border-t border-[#E9D9CD]/60">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#C69A76] flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-[#9C5B6F]" />
+                      <span>3. Opções de Frete / Transportadora para o seu CEP</span>
+                    </h4>
+                    {cepFoundInfo && (
+                      <span className="text-[10px] font-bold text-[#7A3F51] bg-[#FAF0F4] px-2 py-0.5 rounded-full border border-[#E9D9CD]">
+                        {cepFoundInfo}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {shippingQuotes.map((quote) => {
+                      const isSelected = selectedQuote?.carrierId === quote.carrierId;
+                      return (
+                        <button
+                          key={quote.carrierId}
+                          type="button"
+                          onClick={() => setSelectedCarrierId(quote.carrierId)}
+                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? "bg-[#FAF0F4] border-[#7A3F51] ring-2 ring-[#7A3F51]/30 shadow-xs"
+                              : "bg-white border-[#E9D9CD] hover:border-[#9C5B6F]"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-extrabold text-[#39313A]">
+                                {quote.carrierName}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-[#FAF7F8] border border-[#E9D9CD] text-[#7A3F51]">
+                                {quote.serviceLabel}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-gray-600 mt-0.5">
+                              Prazo: {quote.deliveryDays}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            {quote.isFreeForCustomer ? (
+                              <div className="flex flex-col items-end">
+                                <span className="text-[10px] text-gray-400 line-through font-semibold">
+                                  {formatCurrency(quote.companyCost)}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold uppercase">
+                                  GRÁTIS PARA VOCÊ
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs font-extrabold text-[#7A3F51]">
+                                {formatCurrency(quote.customerPrice)}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedQuote && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-[11px] text-emerald-900 flex items-center justify-between gap-2">
+                      <span>
+                        Modalidade ativa: <strong>{selectedQuote.carrierName}</strong> ({selectedQuote.deliveryDays})
+                      </span>
+                      <span className="font-extrabold">
+                        Total atualizado: {formatCurrency(effectiveTotal)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               {/* Botão de Avanço */}
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#9C5B6F] to-[#7A3F51] hover:opacity-95 text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer mt-4"
+                disabled={isStep1Blocked}
+                className={`w-full py-3.5 rounded-full bg-gradient-to-r from-[#9C5B6F] to-[#7A3F51] text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 mt-4 ${
+                  isStep1Blocked
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:opacity-95 cursor-pointer"
+                }`}
               >
                 <span>Avançar para Opções de Pagamento</span>
                 <ArrowRight className="w-4 h-4" />
@@ -526,7 +1008,7 @@ export function CheckoutModal({
                       Chave PIX Oficial Registrada
                     </span>
                     <div className="text-xl font-extrabold text-[#7A3F51]">
-                      {formatCurrency(total)}
+                      {formatCurrency(effectiveTotal)}
                     </div>
                     <p className="text-[11px] text-[#39313A]/70">
                       Escaneie o QR Code abaixo ou utilize o código Copia e Cola no aplicativo do seu banco:
@@ -600,7 +1082,7 @@ export function CheckoutModal({
                       <span>Confirmação Instantânea:</span>
                     </div>
                     <p className="text-[10px] text-emerald-800 leading-relaxed">
-                      Ao clicar no botão abaixo, o pedido será gravado no CRM, os itens serão reservados e você receberá o comprovante para envio no WhatsApp.
+                      Ao clicar no botão abaixo, o pedido será gravado no CRM, os itens serão confirmados e você receberá o comprovante para envio no WhatsApp.
                     </p>
                   </div>
                 </div>
@@ -638,9 +1120,9 @@ export function CheckoutModal({
                       onChange={(e) => setInstallments(Number(e.target.value))}
                       className="w-full px-3 py-2 text-xs bg-white rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] font-bold text-[#7A3F51]"
                     >
-                      <option value={1}>1x de {formatCurrency(total)} (À vista sem juros)</option>
-                      <option value={2}>2x de {formatCurrency(total / 2)} sem juros</option>
-                      <option value={3}>3x de {formatCurrency(total / 3)} sem juros</option>
+                      <option value={1}>1x de {formatCurrency(effectiveTotal)} (À vista sem juros)</option>
+                      <option value={2}>2x de {formatCurrency(effectiveTotal / 2)} sem juros</option>
+                      <option value={3}>3x de {formatCurrency(effectiveTotal / 3)} sem juros</option>
                     </select>
                   </div>
 
@@ -710,7 +1192,7 @@ export function CheckoutModal({
                 >
                   <Check className="w-4 h-4" />
                   <span>
-                    {isSubmitting ? "Gravando Pedido..." : `Confirmar Pedido de ${formatCurrency(total)}`}
+                    {isSubmitting ? "Gravando Pedido..." : `Confirmar Pedido de ${formatCurrency(effectiveTotal)}`}
                   </span>
                 </button>
               </div>
@@ -736,7 +1218,7 @@ export function CheckoutModal({
                   Obrigada pela compra, {createdOrder.customerName.split(" ")[0]}! 💕
                 </h3>
                 <p className="text-xs text-[#39313A]/70 mt-1 max-w-sm mx-auto">
-                  Seu estoque foi reservado com segurança e o seu pedido já está registrado no nosso sistema administrativo.
+                  Seu pedido foi confirmado com segurança e já está registrado no nosso sistema administrativo.
                 </p>
               </div>
 
@@ -761,11 +1243,19 @@ export function CheckoutModal({
                   <div>
                     <strong>Forma de Pagamento:</strong> {createdOrder.paymentMethod}
                   </div>
+                  {createdOrder.shippingCarrier && (
+                    <div>
+                      <strong>Transportadora:</strong> {createdOrder.shippingCarrier}
+                      {createdOrder.shippingServiceDays ? ` (${createdOrder.shippingServiceDays})` : ""}
+                      {" · "}
+                      {createdOrder.shippingAmount === 0 ? "Frete Grátis" : formatCurrency(createdOrder.shippingAmount || 0)}
+                    </div>
+                  )}
                   <div>
                     <strong>Entrega para:</strong> {createdOrder.shippingAddress}
                   </div>
                   <div>
-                    <strong>Itens Reservados:</strong> {createdOrder.items.length} produto(s)
+                    <strong>Itens do Pedido:</strong> {createdOrder.items.length} produto(s)
                   </div>
                 </div>
               </div>

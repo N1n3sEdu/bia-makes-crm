@@ -3,7 +3,6 @@ import {
   StockMovement, 
   Order, 
   MarketplaceChannel, 
-  Customer, 
   FinancialMetric, 
   SystemUser 
 } from "@/types";
@@ -430,45 +429,6 @@ export const initialChannels: MarketplaceChannel[] = [
   }
 ];
 
-export const initialCustomers: Customer[] = [
-  {
-    id: "cust-1",
-    name: "Camila Guimarães",
-    email: "camila.g@gmail.com",
-    phone: "(11) 98765-4321",
-    city: "São Paulo/SP",
-    ordersCount: 4,
-    totalSpent: 486.50,
-    foundationShade: "Tom 02 — Bege Nude",
-    skinType: "Mista",
-    lastOrderDate: "2026-11-10"
-  },
-  {
-    id: "cust-2",
-    name: "Mariana Souza",
-    email: "mari.souza@yahoo.com.br",
-    phone: "(31) 98455-1122",
-    city: "Belo Horizonte/MG",
-    ordersCount: 3,
-    totalSpent: 358.80,
-    foundationShade: "Tom 01 — Porcelana Clara",
-    skinType: "Seca",
-    lastOrderDate: "2026-11-10"
-  },
-  {
-    id: "cust-3",
-    name: "Juliana Andrade",
-    email: "ju.andrade@outlook.com",
-    phone: "(21) 99123-5566",
-    city: "Rio de Janeiro/RJ",
-    ordersCount: 2,
-    totalSpent: 219.80,
-    foundationShade: "Tom 03 — Mel Dourado",
-    skinType: "Oleosa",
-    lastOrderDate: "2026-11-09"
-  }
-];
-
 export const initialFinancial: FinancialMetric = {
   grossRevenue: 0.00,
   marketplaceFees: 0.00,
@@ -548,7 +508,7 @@ export const STORE_CONFIG: StoreConfig = {
   instagramHandle: "@biamakeoficial_",
   instagramUrl: "https://instagram.com/biamakeoficial_",
   shopeeStoreUrl: "https://shopee.com.br/biamakes.beauty",
-  freeShippingThreshold: 149,
+  freeShippingThreshold: 150,
   businessHours: "Segunda a Sexta: 09h às 18h | Sábado: 09h às 13h",
 };
 

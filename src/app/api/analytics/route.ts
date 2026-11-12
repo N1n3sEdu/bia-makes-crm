@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnalyticsDb } from '@/lib/analytics/db';
-import { TrafficSummary, OriginMetric, FunnelStep, DeviceMetric } from '@/types/analytics';
-
-// TODO: Este controle de token deve migrar para autenticação de sessão de servidor (NextAuth / Netlify Identity)
-// quando o backend do Bia Makes for completamente centralizado no servidor.
-function validateAdminAuth(req: NextRequest): boolean {
-  const adminSecret = process.env.ANALYTICS_ADMIN_TOKEN;
-  if (!adminSecret) {
-    // Se a variável não estiver configurada no ambiente local, permite a requisição em dev
-    return true;
-  }
-
-  const tokenHeader = req.headers.get('x-analytics-token');
-  const authHeader = req.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-  return tokenHeader === adminSecret || bearerToken === adminSecret;
-}
+import { getSaoPauloStartOfDay, validateAdminAuth } from '@/lib/analytics/server';
+import {
+  AnalyticsEventType,
+  TrafficSummary,
+  OriginMetric,
+  FunnelStep,
+  DeviceMetric,
+} from '@/types/analytics';
 
 const ORIGIN_COLORS: Record<string, string> = {
   instagram: '#E1306C',
@@ -63,7 +54,7 @@ export async function GET(req: NextRequest) {
   let isToday = false;
 
   if (filter === 'today') {
-    fromDate.setHours(0, 0, 0, 0);
+    fromDate = getSaoPauloStartOfDay(now);
     periodDays = 1;
     isToday = true;
   } else if (filter === '30d') {
@@ -613,7 +604,7 @@ export async function GET(req: NextRequest) {
     const recentEvents = recentRes.map((r) => ({
       id: r.id,
       occurred_at: r.occurred_at,
-      event_type: r.event_type as any,
+      event_type: r.event_type as AnalyticsEventType,
       device: r.device || 'desktop',
       city: r.city || undefined,
       region: r.region || undefined,

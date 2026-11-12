@@ -14,7 +14,6 @@ import {
   Check, 
   Filter, 
   Truck,
-  Instagram,
   ExternalLink,
   Copy,
   Upload,
@@ -144,7 +143,7 @@ export function ProductsManager({
 
   const handleCopyEmbedLink = (sku: string) => {
     const url = `${window.location.origin}/p/${sku}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard?.writeText(url).catch(() => {});
     setCopiedSku(sku);
     setTimeout(() => setCopiedSku(null), 2000);
   };
@@ -238,7 +237,7 @@ export function ProductsManager({
       salePrice: Number(formSalePrice),
       promoPrice: calculatedPromoPrice,
       physicalStock: Number(formPhysicalStock),
-      reservedStock: editingProduct ? editingProduct.reservedStock : 0,
+      reservedStock: 0,
       minStock: Number(formMinStock),
       shippingValue: formFreeShipping ? 0 : Number(formShippingValue),
       freeShipping: formFreeShipping,
@@ -269,15 +268,20 @@ export function ProductsManager({
     setIsModalOpen(false);
   };
 
+  const shortcutsRef = useRef({ handleOpenAdd, handleSave, isModalOpen });
+  useEffect(() => {
+    shortcutsRef.current = { handleOpenAdd, handleSave, isModalOpen };
+  });
+
   // Global shortcuts integration: Alt+N (shortcut-new-item) and Alt+S (shortcut-save-form)
   useEffect(() => {
     const onNewItem = () => {
-      handleOpenAdd();
+      shortcutsRef.current.handleOpenAdd();
     };
     const onSaveForm = () => {
-      if (isModalOpen) {
+      if (shortcutsRef.current.isModalOpen) {
         const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        handleSave(fakeEvent);
+        shortcutsRef.current.handleSave(fakeEvent);
       }
     };
     window.addEventListener("shortcut-new-item", onNewItem);
@@ -286,7 +290,7 @@ export function ProductsManager({
       window.removeEventListener("shortcut-new-item", onNewItem);
       window.removeEventListener("shortcut-save-form", onSaveForm);
     };
-  });
+  }, []);
 
   // Category change handler (resets/restores variations if switching categories)
   const handleCategoryChange = (newCat: ProductCategory) => {
@@ -413,8 +417,12 @@ export function ProductsManager({
             </thead>
             <tbody className="divide-y divide-[#E9D9CD]/50">
               {filtered.map((product) => {
-                const available = product.physicalStock - product.reservedStock;
-                const margin = (((product.salePrice - product.costPrice) / product.salePrice) * 100).toFixed(1);
+                const available = product.physicalStock;
+                const effectivePrice = product.promoPrice || product.salePrice;
+                const margin =
+                  effectivePrice > 0
+                    ? (((effectivePrice - product.costPrice) / effectivePrice) * 100).toFixed(1)
+                    : "0.0";
                 const isLow = available <= product.minStock;
                 const isFreeShip = product.freeShipping || product.shippingValue === 0;
 
@@ -473,7 +481,7 @@ export function ProductsManager({
                         )}
                       </div>
                       <div className="text-[9px] text-gray-400">
-                        Físico: {product.physicalStock} | Res: {product.reservedStock}
+                        Disponível: {product.physicalStock} un | Mín: {product.minStock} un
                       </div>
                     </td>
 
@@ -715,7 +723,7 @@ export function ProductsManager({
                   <div className="text-[10px] text-gray-500 font-bold uppercase">Margem Bruta</div>
                   <div className="text-xl font-extrabold text-emerald-700">{liveMargin}%</div>
                   <div className="text-[10px] text-gray-400">
-                    Lucro: {formatCurrency(formSalePrice - formCostPrice)}/un
+                    Lucro: {formatCurrency(effectiveSellingPrice - formCostPrice)}/un
                   </div>
                 </div>
               </div>
@@ -784,9 +792,9 @@ export function ProductsManager({
                           type="color"
                           value={v.colorHex}
                           onChange={(e) => {
-                            const updated = [...formVariations];
-                            updated[i].colorHex = e.target.value;
-                            setFormVariations(updated);
+                            setFormVariations(prev =>
+                              prev.map((item, idx) => idx === i ? { ...item, colorHex: e.target.value } : item)
+                            );
                           }}
                           className="w-7 h-7 rounded-lg border-0 cursor-pointer"
                           title="Escolher Cor"
@@ -796,9 +804,9 @@ export function ProductsManager({
                           placeholder="Nome da Tonalidade (Ex: Tom 01)"
                           value={v.name}
                           onChange={(e) => {
-                            const updated = [...formVariations];
-                            updated[i].name = e.target.value;
-                            setFormVariations(updated);
+                            setFormVariations(prev =>
+                              prev.map((item, idx) => idx === i ? { ...item, name: e.target.value } : item)
+                            );
                           }}
                           className="flex-1 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs"
                         />
@@ -807,9 +815,9 @@ export function ProductsManager({
                           placeholder="SKU Variação"
                           value={v.sku}
                           onChange={(e) => {
-                            const updated = [...formVariations];
-                            updated[i].sku = e.target.value;
-                            setFormVariations(updated);
+                            setFormVariations(prev =>
+                              prev.map((item, idx) => idx === i ? { ...item, sku: e.target.value } : item)
+                            );
                           }}
                           className="w-28 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-mono"
                         />
@@ -818,9 +826,10 @@ export function ProductsManager({
                           placeholder="Estoque"
                           value={v.stock}
                           onChange={(e) => {
-                            const updated = [...formVariations];
-                            updated[i].stock = parseInt(e.target.value) || 0;
-                            setFormVariations(updated);
+                            const nextStock = parseInt(e.target.value, 10) || 0;
+                            setFormVariations(prev =>
+                              prev.map((item, idx) => idx === i ? { ...item, stock: nextStock } : item)
+                            );
                           }}
                           className="w-20 px-2 py-1 bg-[#FAF7F8] border border-[#E9D9CD] rounded-lg text-xs font-bold"
                           title="Estoque desta variação"

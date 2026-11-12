@@ -8,7 +8,6 @@ import {
   Package,
   Layers,
   ShoppingCart,
-  Globe,
   DollarSign,
   FileSpreadsheet,
   Users,
@@ -16,20 +15,15 @@ import {
   RefreshCw,
   Calculator,
   History,
-  Terminal,
   Building2,
   Hash,
-  Sparkles,
-  ExternalLink,
   ShieldCheck,
-  CheckCircle2,
   X,
   ScanEye,
   FileCheck2,
   Server,
   Copy,
   CornerDownLeft,
-  ArrowUpDown,
   Zap,
   Store,
   UserCheck,
@@ -189,7 +183,6 @@ export function CommandMenuSpotlight() {
     activeScopeName,
     setActiveScopeName,
     syncChannel,
-    syncAllChannels,
     switchAdminProfile,
   } = useBiaMakes();
 
@@ -311,7 +304,7 @@ export function CommandMenuSpotlight() {
 
   // Navegação auxiliar para abas do Admin CRM
   const navigateToAdminTab = useCallback(
-    (tab: string, label: string, triggerEvent?: string) => {
+    (tab: string, triggerEvent?: string) => {
       setCrmActiveTab(tab);
       if (pathname !== "/admin") {
         router.push("/admin");
@@ -404,7 +397,7 @@ export function CommandMenuSpotlight() {
         keywords: "> novo produto criar cadastrar sku cosmetico maquiagem",
         icon: Plus,
         prefixType: "action",
-        action: () => navigateToAdminTab("products", "Produtos & Catálogo", "shortcut-new-item"),
+        action: () => navigateToAdminTab("products", "shortcut-new-item"),
       },
       {
         id: "act-stock-kardex",
@@ -414,7 +407,7 @@ export function CommandMenuSpotlight() {
         keywords: "> estoque kardex lancar entrada saida ajuste inventario",
         icon: Layers,
         prefixType: "action",
-        action: () => navigateToAdminTab("stock", "Estoque Central (Kardex)", "shortcut-new-item"),
+        action: () => navigateToAdminTab("stock", "shortcut-new-item"),
       },
       {
         id: "act-new-tracked-link",
@@ -424,7 +417,7 @@ export function CommandMenuSpotlight() {
         keywords: "> novo link rastreavel trafego utm bio instagram stories zap",
         icon: MousePointerClick,
         prefixType: "action",
-        action: () => navigateToAdminTab("traffic", "Tráfego & Origens dos Clientes", "shortcut-new-item"),
+        action: () => navigateToAdminTab("traffic", "shortcut-new-item"),
       },
       {
         id: "act-export-ged-dre",
@@ -440,14 +433,16 @@ export function CommandMenuSpotlight() {
             (p) =>
               `"${p.sku}","${p.name.replace(/"/g, '""')}","${p.category}",${p.physicalStock},${p.reservedStock},${p.costPrice},${p.salePrice}`
           );
-          const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
-          const encodedUri = encodeURI(csvContent);
+          const csvContent = "\uFEFF" + [headers, ...rows].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
-          link.setAttribute("href", encodedUri);
+          link.setAttribute("href", blobUrl);
           link.setAttribute("download", `relatorio_governanca_biamakes_${new Date().toISOString().slice(0, 10)}.csv`);
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
           setIsSpotlightOpen(false);
         },
       },
@@ -472,7 +467,7 @@ export function CommandMenuSpotlight() {
         keywords: "> novo colaborador usuario operador rbac acesso",
         icon: Users,
         prefixType: "action",
-        action: () => navigateToAdminTab("users", "Usuários & Perfis", "shortcut-new-item"),
+        action: () => navigateToAdminTab("users", "shortcut-new-item"),
       }
     );
 
@@ -486,7 +481,7 @@ export function CommandMenuSpotlight() {
         keywords: "dashboard inicio home indicadores metricas alt+1",
         icon: LayoutDashboard,
         prefixType: "route",
-        action: () => navigateToAdminTab("dashboard", "Dashboard & Indicadores"),
+        action: () => navigateToAdminTab("dashboard"),
       },
       {
         id: "nav-products",
@@ -496,7 +491,7 @@ export function CommandMenuSpotlight() {
         keywords: "produtos catalogo frete redes sociais skus cosmeticos alt+2",
         icon: Package,
         prefixType: "route",
-        action: () => navigateToAdminTab("products", "Produtos, Frete & Redes"),
+        action: () => navigateToAdminTab("products"),
       },
       {
         id: "nav-stock",
@@ -506,7 +501,7 @@ export function CommandMenuSpotlight() {
         keywords: "estoque kardex lotes validade inventario alt+3",
         icon: Layers,
         prefixType: "route",
-        action: () => navigateToAdminTab("stock", "Estoque Central (Kardex)"),
+        action: () => navigateToAdminTab("stock"),
       },
       {
         id: "nav-orders",
@@ -516,7 +511,7 @@ export function CommandMenuSpotlight() {
         keywords: "pedidos vendas chamados ordens clientes devolucao alt+4",
         icon: ShoppingCart,
         prefixType: "route",
-        action: () => navigateToAdminTab("orders", "Pedidos & Vendas"),
+        action: () => navigateToAdminTab("orders"),
       },
       {
         id: "nav-traffic",
@@ -526,7 +521,7 @@ export function CommandMenuSpotlight() {
         keywords: "trafego origens visitantes links bio instagram whatsapp cliques funil alt+5",
         icon: Radar,
         prefixType: "route",
-        action: () => navigateToAdminTab("traffic", "Tráfego & Origens dos Clientes"),
+        action: () => navigateToAdminTab("traffic"),
       },
       {
         id: "nav-financial",
@@ -536,7 +531,7 @@ export function CommandMenuSpotlight() {
         keywords: "financeiro dre lucro margem cmv taxas faturamento alt+6",
         icon: DollarSign,
         prefixType: "route",
-        action: () => navigateToAdminTab("financial", "Financeiro (DRE)"),
+        action: () => navigateToAdminTab("financial"),
       },
       {
         id: "nav-import",
@@ -546,7 +541,7 @@ export function CommandMenuSpotlight() {
         keywords: "importar exportar planilhas csv excel lote alt+7",
         icon: FileSpreadsheet,
         prefixType: "route",
-        action: () => navigateToAdminTab("import", "Importar Planilhas"),
+        action: () => navigateToAdminTab("import"),
       },
       {
         id: "nav-users",
@@ -556,7 +551,7 @@ export function CommandMenuSpotlight() {
         keywords: "usuarios colaboradores perfis acessos senhas admin alt+8",
         icon: Users,
         prefixType: "route",
-        action: () => navigateToAdminTab("users", "Usuários & Perfis"),
+        action: () => navigateToAdminTab("users"),
       },
       {
         id: "nav-storefront",
@@ -586,7 +581,7 @@ export function CommandMenuSpotlight() {
         action: () => {
           setActiveScopeName(`${ch.name} (${ch.accountName})`);
           syncChannel(ch.id);
-          navigateToAdminTab("traffic", `Canal @${ch.name}`);
+          navigateToAdminTab("traffic");
         },
       });
     });
@@ -623,7 +618,7 @@ export function CommandMenuSpotlight() {
         icon: Hash,
         prefixType: "entity",
         action: () => {
-          navigateToAdminTab("orders", `Pedido ${ord.orderNumber}`);
+          navigateToAdminTab("orders");
           setTimeout(() => {
             window.dispatchEvent(
               new CustomEvent("spotlight-filter-order", { detail: ord.orderNumber })
@@ -665,7 +660,6 @@ export function CommandMenuSpotlight() {
     setIsSpotlightOpen,
     setUxXrayMode,
     switchAdminProfile,
-    syncAllChannels,
     syncChannel,
   ]);
 

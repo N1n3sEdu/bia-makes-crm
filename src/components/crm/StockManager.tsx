@@ -4,9 +4,6 @@ import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import { 
   Package, 
-  ArrowDownRight, 
-  ArrowUpRight, 
-  RefreshCw, 
   Sliders, 
   RotateCcw, 
   Check, 
@@ -17,19 +14,14 @@ import {
   ShieldAlert, 
   Download, 
   Search, 
-  Filter, 
   ChevronDown, 
   ChevronRight, 
   Layers, 
   Plus, 
   Minus, 
-  Wrench, 
-  CheckCircle2, 
-  ExternalLink,
-  Sparkles,
-  Info
+  Wrench
 } from "lucide-react";
-import { Product, StockMovement, MovementType, SystemUser } from "@/types";
+import { Product, StockMovement, MovementType } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useBiaMakes } from "@/context/BiaMakesContext";
 
@@ -38,7 +30,6 @@ interface StockManagerProps {
   movements: StockMovement[];
   onAddMovement: (movement: StockMovement) => void;
   onUpdateProductStock: (productId: string, newPhysical: number, variationId?: string) => void;
-  currentUser?: SystemUser;
 }
 
 type StockTabType = "inventory" | "kardex";
@@ -50,7 +41,7 @@ export function StockManager({
   onAddMovement,
   onUpdateProductStock,
 }: StockManagerProps) {
-  const { adminUser } = useBiaMakes();
+  const { adminUser, orders } = useBiaMakes();
 
   const [activeTab, setActiveTab] = useState<StockTabType>("inventory");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -79,35 +70,50 @@ export function StockManager({
     "Reposição de Mostruário",
   ];
 
-  // 1. HERO BANNER DE SAÚDE DO INVENTÁRIO (3 CARDS DE TOPO)
+  // Helper para calcular total vendido de um produto específico
+  const getProductSoldUnits = (p: Product) => {
+    return (orders || [])
+      .filter((o) => o.status !== "CANCELADO" && o.status !== "DEVOLUCAO")
+      .flatMap((o) => o.items || [])
+      .filter(
+        (it) =>
+          it.productId === p.id ||
+          it.sku === p.sku ||
+          p.variations?.some((v) => v.sku === it.sku)
+      )
+      .reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+  };
+
+  // 1. HERO BANNER DE SAÚDE DO INVENTÁRIO (3 CARDS DE TOPO: APENAS VENDIDOS E DISPONÍVEIS)
   const inventoryHealth = useMemo(() => {
     let totalValue = 0;
-    let totalPhysicalPieces = 0;
-    let totalReservedPieces = 0;
+    let totalAvailablePieces = 0;
     let ruptureCount = 0;
 
     products.forEach((p) => {
       const physical = Number(p.physicalStock) || 0;
-      const reserved = Number(p.reservedStock) || 0;
       const cost = Number(p.costPrice) || 0;
-      const available = physical - reserved;
 
-      totalPhysicalPieces += physical;
-      totalReservedPieces += reserved;
+      totalAvailablePieces += physical;
       totalValue += physical * cost;
 
-      if (available <= p.minStock) {
+      if (physical <= p.minStock) {
         ruptureCount++;
       }
     });
 
+    const totalSoldPieces = (orders || [])
+      .filter((o) => o.status !== "CANCELADO" && o.status !== "DEVOLUCAO")
+      .flatMap((o) => o.items || [])
+      .reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+
     return {
       totalValue,
-      totalPhysicalPieces,
-      totalReservedPieces,
+      totalAvailablePieces,
+      totalSoldPieces,
       ruptureCount,
     };
-  }, [products]);
+  }, [products, orders]);
 
   // Alternar Accordion de Variações
   const toggleAccordion = (productId: string) => {
@@ -153,10 +159,9 @@ export function StockManager({
       ? selectedProduct.physicalStock + delta
       : next;
 
-    const reserved = selectedProduct.reservedStock || 0;
-    const isValid = next >= 0 && nextCentral >= reserved;
+    const isValid = next >= 0 && nextCentral >= 0;
 
-    return { current, next, delta, nextCentral, isValid, reserved };
+    return { current, next, delta, nextCentral, isValid };
   }, [selectedProduct, selectedVariationId, movementType, quantityInput]);
 
   // Submissão da Movimentação
@@ -169,16 +174,9 @@ export function StockManager({
       return;
     }
 
-    const reservedCount = adjustmentPreview.reserved ?? 0;
     if (!adjustmentPreview.isValid) {
-      if (adjustmentPreview.next < 0) {
+      if (adjustmentPreview.next < 0 || adjustmentPreview.nextCentral < 0) {
         alert("O estoque não pode ficar negativo.");
-        return;
-      }
-      if (adjustmentPreview.nextCentral < reservedCount) {
-        alert(
-          `Operação Bloqueada: Estoque Insuficiente!\n\nO produto possui ${reservedCount} unidade(s) reservadas para pedidos em andamento.\nO estoque físico resultante (${adjustmentPreview.nextCentral} un) não pode ser inferior ao estoque reservado.`
-        );
         return;
       }
     }
@@ -187,7 +185,7 @@ export function StockManager({
 
     // Registro no Kardex
     const movement: StockMovement = {
-      id: `mov-${Date.now()}`,
+      id: `mov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       productId: selectedProduct.id,
       productName: targetVar 
         ? `${selectedProduct.name} (${targetVar.name})` 
@@ -264,14 +262,16 @@ export function StockManager({
       ]),
     ];
 
-    const csvContent = "data:text/csv;charset=utf-8," + csvRows.map((e) => e.join(";")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = "\uFEFF" + csvRows.map((e) => e.join(";")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", blobUrl);
     link.setAttribute("download", `Kardex_BiaMakes_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
   };
 
   return (
@@ -324,12 +324,12 @@ export function StockManager({
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-[#39313A] tracking-tight">
-              {inventoryHealth.totalPhysicalPieces} un
+              {inventoryHealth.totalAvailablePieces} un
             </div>
             <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-2">
-              <span>Disponíveis: <strong>{inventoryHealth.totalPhysicalPieces - inventoryHealth.totalReservedPieces} un</strong></span>
+              <span className="text-emerald-700 font-semibold">Disponíveis: {inventoryHealth.totalAvailablePieces} un</span>
               <span>•</span>
-              <span className="text-amber-700 font-semibold">Reservadas: {inventoryHealth.totalReservedPieces} un</span>
+              <span className="text-[#7A3F51] font-semibold">Vendidos: {inventoryHealth.totalSoldPieces} un</span>
             </div>
           </div>
         </div>
@@ -433,15 +433,15 @@ export function StockManager({
                 </div>
               ) : (
                 filteredProducts.map((p) => {
-                  const available = p.physicalStock - p.reservedStock;
+                  const soldUnits = getProductSoldUnits(p);
+                  const available = p.physicalStock;
                   const isRupture = available <= p.minStock;
                   const hasVars = p.variations && p.variations.length > 0;
                   const isExpanded = expandedProductIds.includes(p.id);
 
-                  // Capacidade percentual da barra
-                  const maxCap = Math.max(p.physicalStock, p.minStock * 2, 20);
-                  const physicalPct = Math.min(100, Math.round((p.physicalStock / maxCap) * 100));
-                  const reservedPct = Math.min(100, Math.round((p.reservedStock / maxCap) * 100));
+                  // Capacidade percentual da barra de disponível
+                  const maxCap = Math.max(available + soldUnits, p.minStock * 2, 20);
+                  const availablePct = Math.min(100, Math.round((available / maxCap) * 100));
                   const minPct = Math.min(100, Math.round((p.minStock / maxCap) * 100));
 
                   return (
@@ -489,8 +489,7 @@ export function StockManager({
                         <div className="flex-1 w-full lg:max-w-md space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-3 font-semibold">
-                              <span>Físico: <strong>{p.physicalStock} un</strong></span>
-                              <span className="text-amber-700">Reservado: <strong>{p.reservedStock} un</strong></span>
+                              <span className="text-[#7A3F51]">Vendidos: <strong>{soldUnits} un</strong></span>
                               <span className="text-emerald-700 font-extrabold">Disponível: {available} un</span>
                             </div>
                             <span className="text-[10px] text-gray-400">Mínimo: {p.minStock} un</span>
@@ -506,15 +505,10 @@ export function StockManager({
                             />
                             {/* Disponível */}
                             <div
-                              style={{ width: `${Math.max(0, physicalPct - reservedPct)}%` }}
+                              style={{ width: `${availablePct}%` }}
                               className={`h-full transition-all duration-300 ${
                                 isRupture ? "bg-amber-500" : "bg-emerald-500"
                               }`}
-                            />
-                            {/* Reservado */}
-                            <div
-                              style={{ width: `${reservedPct}%` }}
-                              className="h-full bg-purple-500 transition-all duration-300"
                             />
                           </div>
                         </div>
@@ -837,10 +831,10 @@ export function StockManager({
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min={movementType === "AJUSTE" ? 0 : 1}
                   required
                   value={quantityInput}
-                  onChange={(e) => setQuantityInput(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setQuantityInput(parseInt(e.target.value, 10) || 0)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#FAF7F8] border border-[#E9D9CD] text-base font-extrabold text-[#7A3F51] focus:outline-none focus:border-[#9C5B6F]"
                 />
               </div>

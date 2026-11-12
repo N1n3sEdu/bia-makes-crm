@@ -10,7 +10,6 @@ interface TrafficHeatmapProps {
 }
 
 const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const HOURS_SAMPLE = [0, 3, 6, 9, 12, 15, 18, 21];
 
 export function TrafficHeatmap({ cells, peakInsight }: TrafficHeatmapProps) {
   // Mapear visitas em matriz [dow][hour]

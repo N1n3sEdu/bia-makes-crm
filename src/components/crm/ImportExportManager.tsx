@@ -6,9 +6,7 @@ import {
   Upload, 
   Download, 
   CheckCircle2, 
-  AlertTriangle, 
-  FileCheck, 
-  HelpCircle 
+  FileCheck 
 } from "lucide-react";
 import { Product, ProductCategory } from "@/types";
 
@@ -17,12 +15,48 @@ interface ImportExportManagerProps {
   onImportProducts: (imported: Product[]) => void;
 }
 
+function downloadCsvFile(filename: string, content: string) {
+  const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 export function ImportExportManager({
   products,
   onImportProducts,
 }: ImportExportManagerProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewData, setPreviewData] = useState<Product[]>([]);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   // Download Sample Template CSV
@@ -34,32 +68,17 @@ export function ImportExportManager({
       '"Máscara de Cílios Volume Máximo","BM-MASK-01","7891234567103","Olhos","Bia Makes",18.00,49.90,40,10,"LT2026-X3","2027-06-30","Resistente à água com pincel curvado aplicador."'
     ].join("\n");
 
-    const blob = new Blob([headers + sampleRows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "modelo_importacao_bia_makes.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsvFile("modelo_importacao_bia_makes.csv", headers + sampleRows);
   };
 
   // Export current catalog to CSV
   const handleExportCurrent = () => {
-    const headers = "Nome,SKU,EAN,Categoria,Marca,PrecoCusto,PrecoVenda,EstoqueFisico,EstoqueReservado,EstoqueDisponivel,Lote,Validade\n";
+    const headers = "Nome,SKU,EAN,Categoria,Marca,PrecoCusto,PrecoVenda,EstoqueDisponivel,Lote,Validade\n";
     const rows = products.map(p => {
-      const avail = p.physicalStock - p.reservedStock;
-      return `"${p.name}","${p.sku}","${p.ean}","${p.category}","${p.brand}",${p.costPrice},${p.salePrice},${p.physicalStock},${p.reservedStock},${avail},"${p.batch}","${p.expiryDate}"`;
+      return `"${p.name.replace(/"/g, '""')}","${p.sku}","${p.ean}","${p.category}","${p.brand}",${p.costPrice},${p.salePrice},${p.physicalStock},"${p.batch}","${p.expiryDate}"`;
     }).join("\n");
 
-    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `estoque_bia_makes_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsvFile(`estoque_bia_makes_${new Date().toISOString().slice(0, 10)}.csv`, headers + rows);
   };
 
   // Handle File Input
@@ -71,32 +90,37 @@ export function ImportExportManager({
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split("\n").filter(l => l.trim().length > 0);
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
       if (lines.length <= 1) {
         alert("O arquivo parece vazio ou contém apenas o cabeçalho.");
         return;
       }
 
-      // Parse first few rows as preview
-      const parsedRows = lines.slice(1).map((line, idx) => {
-        const parts = line.split(",").map(p => p.replace(/"/g, "").trim());
+      // Parse rows as preview
+      const parsedRows: Product[] = lines.slice(1).map((line, idx) => {
+        const parts = parseCsvLine(line);
+        const sku = parts[1] || `SKU-${idx}`;
+        const physicalStock = parseInt(parts[7], 10) || 10;
         return {
           id: `imp-${Date.now()}-${idx}`,
           name: parts[0] || "Sem Nome",
-          sku: parts[1] || `SKU-${idx}`,
+          sku,
           ean: parts[2] || "7890000000000",
           category: (parts[3] as ProductCategory) || "Rosto",
           brand: parts[4] || "Bia Makes",
           costPrice: parseFloat(parts[5]) || 20.0,
           salePrice: parseFloat(parts[6]) || 59.90,
-          physicalStock: parseInt(parts[7]) || 10,
+          shippingValue: 0,
+          freeShipping: false,
+          physicalStock,
           reservedStock: 0,
-          minStock: parseInt(parts[8]) || 5,
+          minStock: parseInt(parts[8], 10) || 5,
           batch: parts[9] || "LT-IMP",
           expiryDate: parts[10] || "2027-12-31",
           description: parts[11] || "Produto importado via planilha.",
           images: ["https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80"],
-          variations: [{ id: `v-${idx}`, name: "Padrão", colorHex: "#E9D9CD", sku: parts[1] || `SKU-${idx}`, stock: 10 }],
+          variations: [{ id: `v-${Date.now()}-${idx}`, name: "Padrão", colorHex: "#E9D9CD", sku, stock: physicalStock }],
+          socialLinks: { embedStockAndShipping: true },
           rating: 5.0,
           reviewsCount: 0
         };

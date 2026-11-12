@@ -85,7 +85,6 @@ interface BiaMakesContextType {
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   createStorefrontOrder: (orderData: StorefrontOrderData) => Order;
   syncChannel: (channelId: string) => void;
-  syncAllChannels: () => void;
   updateChannel: (updated: MarketplaceChannel) => void;
   isMaintenanceMode: boolean;
   maintenanceMessage: string;
@@ -110,8 +109,16 @@ const STORAGE_KEYS = {
   MAINTENANCE_MESSAGE: "biamakes_maintenance_message_v1",
 };
 
+const sanitizeProducts = (prods: Product[]): Product[] => {
+  if (!Array.isArray(prods)) return [];
+  return prods.map((p) => ({
+    ...p,
+    reservedStock: 0,
+  }));
+};
+
 export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(() => sanitizeProducts(initialProducts));
   const [movements, setMovements] = useState<StockMovement[]>(initialStockMovements);
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [channels, setChannels] = useState<MarketplaceChannel[]>(initialChannels);
@@ -309,7 +316,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       }
 
       const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
+      if (savedProducts) setProducts(sanitizeProducts(JSON.parse(savedProducts)));
 
       const savedMovements = localStorage.getItem(STORAGE_KEYS.MOVEMENTS);
       if (savedMovements) setMovements(JSON.parse(savedMovements));
@@ -362,9 +369,10 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_KEYS.UPDATED_AT, String(data.updatedAt));
 
         if (Array.isArray(data.products) && data.products.length > 0) {
-          productsRef.current = data.products;
-          setProducts(data.products);
-          localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(data.products));
+          const cleanedProducts = sanitizeProducts(data.products);
+          productsRef.current = cleanedProducts;
+          setProducts(cleanedProducts);
+          localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(cleanedProducts));
         }
         if (Array.isArray(data.movements)) {
           movementsRef.current = data.movements;
@@ -432,7 +440,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
       const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (savedProducts) {
-        const parsedProducts = JSON.parse(savedProducts);
+        const parsedProducts = sanitizeProducts(JSON.parse(savedProducts));
         productsRef.current = parsedProducts;
         setProducts(parsedProducts);
       }
@@ -483,7 +491,12 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       }
 
       const savedAuth = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
-      if (savedAuth === "true") setIsAdminAuthenticated(true);
+      if (savedAuth === "true") {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem("bm_is_admin", "true");
+      } else {
+        localStorage.removeItem("bm_is_admin");
+      }
 
       const savedUser = localStorage.getItem(STORAGE_KEYS.ADMIN_USER);
       if (savedUser) setAdminUser(JSON.parse(savedUser));
@@ -668,6 +681,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       setIsAdminAuthenticated(true);
       localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, "true");
       localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(masterUser));
+      localStorage.setItem("bm_is_admin", "true");
       return { success: true };
     }
 
@@ -693,12 +707,15 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     setIsAdminAuthenticated(true);
     localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, "true");
     localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(matched));
+    localStorage.setItem("bm_is_admin", "true");
     return { success: true };
   };
 
   const logoutAdmin = () => {
     setIsAdminAuthenticated(false);
     localStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+    localStorage.removeItem("bm_is_admin");
   };
 
   // CRM Users Management
@@ -729,7 +746,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     // Estoque disponível específico do tom escolhido ou geral do produto
     const availableStock = currentVar && typeof currentVar.stock === "number"
       ? currentVar.stock
-      : Math.max(0, currentProd.physicalStock - currentProd.reservedStock);
+      : Math.max(0, currentProd.physicalStock);
 
     if (availableStock <= 0) {
       alert(`O tom selecionado "${currentVar?.name || currentProd.name}" está esgotado no momento.`);
@@ -798,7 +815,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
       const availableStock = currentVar && typeof currentVar.stock === "number"
         ? currentVar.stock
-        : Math.max(0, currentProd.physicalStock - currentProd.reservedStock);
+        : Math.max(0, currentProd.physicalStock);
 
       const updated = [...prev];
       const clampedQuantity = Math.max(1, Math.min(quantity, Math.max(1, availableStock)));
@@ -925,66 +942,14 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       const previousStock = prod.physicalStock;
       const previousReserved = prod.reservedStock || 0;
 
-      // 1. PENDENTE -> Ativo (PAGO, SEPARACAO, ENVIADO, CONCLUIDO): efetiva baixa física e libera reserva
-      if (oldStatus === "PENDENTE" && isActiveSaleStatus(newStatus)) {
-        const currentStock = Math.max(0, previousStock - qtyTotal);
-        const currentReserved = Math.max(0, previousReserved - qtyTotal);
+      const buildMovId = (tag: string, prodId: string) =>
+        `mov-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${prodId}`;
 
-        newMovements.push({
-          id: `mov-paid-${Date.now()}-${prod.id}`,
-          productId: prod.id,
-          productName: prod.name,
-          sku: prod.sku,
-          type: "SAIDA",
-          quantity: -qtyTotal,
-          previousStock,
-          currentStock,
-          reason: `Confirmação do Pedido ${targetOrder.orderNumber} (${newStatus}) — Baixa física de ${qtyTotal} un`,
-          operator: `${operatorName} (${operatorRole})`,
-          date: new Date().toISOString(),
-        });
-
-        return {
-          ...prod,
-          physicalStock: currentStock,
-          reservedStock: currentReserved,
-        };
-      }
-
-      // 2. PENDENTE -> CANCELADO / DEVOLUCAO: apenas libera reserva e devolve variação (sem alterar físico)
-      if (oldStatus === "PENDENTE" && isRefundStatus(newStatus)) {
-        const currentReserved = Math.max(0, previousReserved - qtyTotal);
-        newMovements.push({
-          id: `mov-rel-${Date.now()}-${prod.id}`,
-          productId: prod.id,
-          productName: prod.name,
-          sku: prod.sku,
-          type: "DEVOLUCAO",
-          quantity: qtyTotal,
-          previousStock,
-          currentStock: previousStock,
-          reason: `Cancelamento do Pedido Pendente ${targetOrder.orderNumber} — Reserva liberada (${qtyTotal} un)`,
-          operator: `${operatorName} (${operatorRole})`,
-          date: new Date().toISOString(),
-        });
-
-        const updatedVariations = prod.variations?.map((v) => {
-          const retQty = matchVariationItem(v, matchingItems);
-          return retQty > 0 ? { ...v, stock: v.stock + retQty } : v;
-        });
-
-        return {
-          ...prod,
-          reservedStock: currentReserved,
-          variations: updatedVariations || prod.variations,
-        };
-      }
-
-      // 3. Ativo -> CANCELADO / DEVOLUCAO: estorna estoque físico e variação
-      if (isActiveSaleStatus(oldStatus) && isRefundStatus(newStatus)) {
+      // 1. Não-cancelado -> CANCELADO ou DEVOLUCAO: estorna estoque físico e restaura variações
+      if (!isRefundStatus(oldStatus) && isRefundStatus(newStatus)) {
         const currentStock = previousStock + qtyTotal;
         newMovements.push({
-          id: `mov-ret-${Date.now()}-${prod.id}`,
+          id: buildMovId("ret", prod.id),
           productId: prod.id,
           productName: prod.name,
           sku: prod.sku,
@@ -1008,15 +973,16 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         return {
           ...prod,
           physicalStock: currentStock,
+          reservedStock: 0,
           variations: updatedVariations || prod.variations,
         };
       }
 
-      // 4. CANCELADO / DEVOLUCAO -> Ativo: baixa física e variação novamente
-      if (isRefundStatus(oldStatus) && isActiveSaleStatus(newStatus)) {
+      // 2. CANCELADO ou DEVOLUCAO -> Ativo ou PENDENTE: efetua baixa física e deduz variações
+      if (isRefundStatus(oldStatus) && !isRefundStatus(newStatus)) {
         const currentStock = Math.max(0, previousStock - qtyTotal);
         newMovements.push({
-          id: `mov-react-${Date.now()}-${prod.id}`,
+          id: buildMovId("react", prod.id),
           productId: prod.id,
           productName: prod.name,
           sku: prod.sku,
@@ -1024,7 +990,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
           quantity: -qtyTotal,
           previousStock,
           currentStock,
-          reason: `Reativação do Pedido ${targetOrder.orderNumber} (${newStatus}) — Baixa de estoque`,
+          reason: `Reativação do Pedido ${targetOrder.orderNumber} (${newStatus}) — Baixa de estoque (-${qtyTotal} un)`,
           operator: `${operatorName} (${operatorRole})`,
           date: new Date().toISOString(),
         });
@@ -1037,40 +1003,15 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         return {
           ...prod,
           physicalStock: currentStock,
+          reservedStock: 0,
           variations: updatedVariations || prod.variations,
         };
       }
 
-      // 5. CANCELADO / DEVOLUCAO -> PENDENTE: reserva novamente
-      if (isRefundStatus(oldStatus) && newStatus === "PENDENTE") {
-        const currentReserved = previousReserved + qtyTotal;
-        newMovements.push({
-          id: `mov-res-${Date.now()}-${prod.id}`,
-          productId: prod.id,
-          productName: prod.name,
-          sku: prod.sku,
-          type: "RESERVA",
-          quantity: qtyTotal,
-          previousStock,
-          currentStock: previousStock,
-          reason: `Reabertura como Pendente do Pedido ${targetOrder.orderNumber} — Reserva de ${qtyTotal} un`,
-          operator: `${operatorName} (${operatorRole})`,
-          date: new Date().toISOString(),
-        });
-
-        const updatedVariations = prod.variations?.map((v) => {
-          const resQty = matchVariationItem(v, matchingItems);
-          return resQty > 0 ? { ...v, stock: Math.max(0, v.stock - resQty) } : v;
-        });
-
-        return {
-          ...prod,
-          reservedStock: currentReserved,
-          variations: updatedVariations || prod.variations,
-        };
-      }
-
-      return prod;
+      return {
+        ...prod,
+        reservedStock: 0,
+      };
     });
 
     const baseOrders = orders.length > 0 ? orders : ordersRef.current;
@@ -1195,36 +1136,29 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
 
     const newMovements: StockMovement[] = [];
 
-    // Atualizar physicalStock (para vendas PAGAS) ou reservedStock (para vendas PENDENTES via WhatsApp) + saldo das variações
+    // Baixa direta do estoque físico e das variações de tom em qualquer venda criada (WhatsApp ou Loja Virtual)
     const nextProducts = productsRef.current.map((prod) => {
       const matchingItems = orderCart.filter((ci) => ci.product.id === prod.id);
-      if (matchingItems.length === 0) return prod;
+      if (matchingItems.length === 0) return { ...prod, reservedStock: 0 };
 
       const totalQtyForProd = matchingItems.reduce((acc, mi) => acc + mi.quantity, 0);
       const previousStock = prod.physicalStock;
-      const nextPhysical = isDirectPaidCheckout
-        ? Math.max(0, previousStock - totalQtyForProd)
-        : previousStock;
-      const nextReserved = isDirectPaidCheckout
-        ? prod.reservedStock || 0
-        : (prod.reservedStock || 0) + totalQtyForProd;
+      const nextPhysical = Math.max(0, previousStock - totalQtyForProd);
 
       matchingItems.forEach((mi, idx) => {
         newMovements.push({
-          id: `mov-${isDirectPaidCheckout ? "sale" : "res"}-${Date.now()}-${prod.id}-${idx}`,
+          id: `mov-sale-${Date.now()}-${prod.id}-${idx}`,
           productId: prod.id,
           productName: mi.selectedVariation
             ? `${prod.name} (${mi.selectedVariation.name})`
             : prod.name,
           sku: mi.selectedVariation?.sku || prod.sku,
-          type: isDirectPaidCheckout ? "SAIDA" : "RESERVA",
-          quantity: isDirectPaidCheckout ? -mi.quantity : mi.quantity,
+          type: "SAIDA",
+          quantity: -mi.quantity,
           previousStock,
           currentStock: nextPhysical,
-          reason: isDirectPaidCheckout
-            ? `Venda confirmada na Loja Virtual #${orderNumber} (${orderData.customerName}) — ${paymentMethodLabel}`
-            : `Reserva para pedido via WhatsApp #${orderNumber} (${orderData.customerName})`,
-          operator: "Loja Virtual (Checkout Online)",
+          reason: `Venda #${orderNumber} (${orderData.customerName}) — ${paymentMethodLabel}`,
+          operator: "Loja Virtual (Checkout)",
           date: new Date().toISOString(),
         });
       });
@@ -1248,7 +1182,7 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
       return {
         ...prod,
         physicalStock: nextPhysical,
-        reservedStock: nextReserved,
+        reservedStock: 0,
         variations: updatedVariations,
       };
     });
@@ -1291,23 +1225,12 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
     persistSnapshot({ channels: nextChannels });
   };
 
-  const syncAllChannels = () => {
-    const now = new Date().toISOString();
-    const nextChannels = channelsRef.current.map((c) => ({
-      ...c,
-      lastSync: now,
-      status: "CONECTADO" as const,
-      activeAds: Math.max(c.activeAds, productsRef.current.length),
-    }));
-    setChannels(nextChannels);
-    persistSnapshot({ channels: nextChannels });
-  };
-
   const switchAdminProfile = (user: SystemUser) => {
     setAdminUser(user);
     setIsAdminAuthenticated(true);
     localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, "true");
     localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(user));
+    localStorage.setItem("bm_is_admin", "true");
   };
 
   const updateChannel = (updated: MarketplaceChannel) => {
@@ -1333,32 +1256,9 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         console.error("Erro ao salvar modo manutenção no localStorage:", e);
       }
 
-      try {
-        if ("BroadcastChannel" in window) {
-          const bc = new BroadcastChannel("biamakes_store_sync");
-          bc.postMessage({ updatedAt: Date.now(), maintenanceMode: active, maintenanceMessage: message });
-          bc.close();
-        }
-      } catch {}
-
-      const now = Date.now();
-      lastUpdatedAtRef.current = now;
-      fetch("/api/store-state", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          updatedAt: now,
-          products: productsRef.current,
-          movements: movementsRef.current,
-          orders: ordersRef.current,
-          channels: channelsRef.current,
-          maintenanceMode: active,
-          maintenanceMessage: message !== undefined ? message : maintenanceMessageRef.current,
-        }),
-        keepalive: true,
-      }).catch(() => {});
+      persistSnapshot({});
     }
-  }, []);
+  }, [persistSnapshot]);
 
   return (
     <BiaMakesContext.Provider
@@ -1400,7 +1300,6 @@ export function BiaMakesProvider({ children }: { children: React.ReactNode }) {
         updateOrderStatus,
         createStorefrontOrder,
         syncChannel,
-        syncAllChannels,
         updateChannel,
         isMaintenanceMode,
         maintenanceMessage,

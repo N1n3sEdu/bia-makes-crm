@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Sliders, Check, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, Sliders, Check } from 'lucide-react';
 import { MarketplaceChannel } from '@/types';
 
 interface ChannelFeesSettingsBlockProps {
@@ -92,7 +92,7 @@ export function ChannelFeesSettingsBlock({
                           type="number"
                           step="0.1"
                           value={editFee}
-                          onChange={(e) => setEditFee(parseFloat(e.target.value))}
+                          onChange={(e) => setEditFee(parseFloat(e.target.value) || 0)}
                           className="w-full px-2.5 py-1.5 rounded-lg border border-[#C69A76] font-bold text-[#7A3F51] bg-[#FAF7F8] focus:outline-none"
                         />
                       </div>
@@ -104,7 +104,7 @@ export function ChannelFeesSettingsBlock({
                           type="number"
                           step="0.5"
                           value={editShipping}
-                          onChange={(e) => setEditShipping(parseFloat(e.target.value))}
+                          onChange={(e) => setEditShipping(parseFloat(e.target.value) || 0)}
                           className="w-full px-2.5 py-1.5 rounded-lg border border-[#C69A76] font-bold text-[#7A3F51] bg-[#FAF7F8] focus:outline-none"
                         />
                       </div>

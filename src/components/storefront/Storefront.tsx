@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -282,7 +282,7 @@ export function Storefront({
   // Copy shareable social link with embedded stock & shipping
   const handleCopySocialLink = (sku: string) => {
     const url = `${window.location.origin}/p/${sku}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard?.writeText(url).catch(() => {});
     setCopiedSku(sku);
     setTimeout(() => setCopiedSku(null), 2500);
   };
@@ -419,7 +419,7 @@ export function Storefront({
     });
     text += `\n*Subtotal:* ${formatCurrency(subtotal)}`;
     if (appliedDiscount > 0) text += `\n*Desconto:* -${formatCurrency(discountValue)} (BIAMAKE10)`;
-    text += `\n*Frete Calculado:* ${shipping === 0 ? 'GRÁTIS' : formatCurrency(shipping)}`;
+    text += `\n*Frete:* ${selectedCartQuote ? (shipping === 0 ? 'GRÁTIS' : formatCurrency(shipping)) : 'A calcular pelo CEP'}`;
     text += `\n*TOTAL:* ${formatCurrency(order.totalAmount)}\n\nPor favor, confirmem o envio e a chave PIX! ✨`;
 
     trackEvent("outbound_click", { target: "whatsapp" });
@@ -1105,10 +1105,7 @@ export function Storefront({
                   inputMode="numeric"
                   placeholder="Digite seu CEP (ex: 01310-100)"
                   value={cepInput}
-                  onChange={(e) => {
-                    setCepInput(formatCepMask(e.target.value));
-                    if (cepError) setCepError('');
-                  }}
+                  onChange={(e) => handleSharedCepInputChange(e.target.value, quickViewProduct)}
                   maxLength={9}
                   className={`flex-1 px-4 py-2.5 text-xs bg-white rounded-xl border focus:outline-none shadow-xs ${
                     cepError
@@ -1697,7 +1694,6 @@ export function Storefront({
         onClose={() => setIsCheckoutOpen(false)}
         items={cart}
         subtotal={subtotal}
-        shippingAmount={shipping}
         discountAmount={discountValue}
         total={total}
         initialCep={cepInput}

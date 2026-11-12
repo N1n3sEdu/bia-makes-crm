@@ -10,29 +10,23 @@ import {
   ShoppingBag,
   TrendingUp,
   TrendingDown,
-  Info,
   Download,
   Plus,
-  RefreshCw,
   QrCode as QrIcon,
   Copy,
   Check,
   Archive,
   Smartphone,
-  Monitor,
-  Tablet,
   MapPin,
   Clock,
   Sparkles,
   ExternalLink,
   Flame,
-  AlertCircle,
   HelpCircle,
   Activity,
-  Layers,
 } from 'lucide-react';
 import { useBiaMakes } from '@/context/BiaMakesContext';
-import { TrafficSummary, OriginMetric, TrackedLink, RecentEventFeed } from '@/types/analytics';
+import { TrafficSummary, TrackedLink } from '@/types/analytics';
 import { TrafficTimeSeriesChart } from './traffic/TrafficTimeSeriesChart';
 import { TrafficFunnelChart } from './traffic/TrafficFunnelChart';
 import { TrafficHeatmap } from './traffic/TrafficHeatmap';
@@ -268,8 +262,6 @@ export function TrafficManager() {
 
   // Estados de dados da API
   const [summary, setSummary] = useState<TrafficSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   // Modais de Criação e QR Code
@@ -283,12 +275,8 @@ export function TrafficManager() {
   const fetchAnalytics = useCallback(async () => {
     if (isDemoMode) {
       setSummary(generateDemoData());
-      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
-    setApiError(null);
 
     try {
       const params = new URLSearchParams({
@@ -305,11 +293,8 @@ export function TrafficManager() {
       }
       const data: TrafficSummary = await res.json();
       setSummary(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[TrafficManager] Erro:', err);
-      setApiError('Não foi possível carregar os dados de tráfego do servidor.');
-    } finally {
-      setIsLoading(false);
     }
   }, [periodFilter, comparePrevious, selectedOrigin, isDemoMode]);
 
@@ -328,7 +313,7 @@ export function TrafficManager() {
   const handleCopyLink = (code: string) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://biamakes.com.br';
     const full = `${origin}/r/${code}`;
-    navigator.clipboard.writeText(full);
+    navigator.clipboard?.writeText(full).catch(() => {});
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   };
@@ -353,8 +338,8 @@ export function TrafficManager() {
       });
       if (!res.ok) throw new Error('Erro ao arquivar link');
       fetchAnalytics();
-    } catch (err: any) {
-      alert(err?.message || 'Falha ao arquivar link');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Falha ao arquivar link');
     }
   };
 

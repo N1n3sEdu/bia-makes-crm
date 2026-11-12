@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Link as LinkIcon, Sparkles, Check, AlertCircle } from 'lucide-react';
+import { X, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { Product } from '@/types';
 
 interface CreateTrackedLinkModalProps {
@@ -41,14 +41,16 @@ export function CreateTrackedLinkModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const effectiveSku = selectedSku || products[0]?.sku || '';
+
   if (!isOpen) return null;
 
   const handleChannelChange = (channelId: string) => {
     setSelectedChannel(channelId);
     const preset = PRESET_CHANNELS.find((c) => c.id === channelId);
     if (preset) {
-      if (destinationType === 'product' && selectedSku) {
-        const cleanSku = selectedSku.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
+      if (destinationType === 'product' && effectiveSku) {
+        const cleanSku = effectiveSku.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
         setCode(`${preset.codeSuffix}-${cleanSku}`);
       } else {
         setCode(preset.codeSuffix);
@@ -60,8 +62,8 @@ export function CreateTrackedLinkModal({
     setDestinationType(type);
     const preset = PRESET_CHANNELS.find((c) => c.id === selectedChannel);
     if (preset) {
-      if (type === 'product' && selectedSku) {
-        const cleanSku = selectedSku.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
+      if (type === 'product' && effectiveSku) {
+        const cleanSku = effectiveSku.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 15);
         setCode(`${preset.codeSuffix}-${cleanSku}`);
       } else {
         setCode(preset.codeSuffix);
@@ -82,10 +84,15 @@ export function CreateTrackedLinkModal({
     e.preventDefault();
     setErrorMessage(null);
 
+    if (destinationType === 'product' && !effectiveSku) {
+      setErrorMessage('Selecione um produto antes de criar um link direcionado.');
+      return;
+    }
+
     const preset = PRESET_CHANNELS.find((c) => c.id === selectedChannel);
     const source = selectedChannel === 'outro' ? (customSource.trim() || 'outros') : preset?.source || 'direto';
     const medium = selectedChannel === 'outro' ? (customMedium.trim() || null) : preset?.medium || null;
-    const destination = destinationType === 'home' ? '/' : `/p/${encodeURIComponent(selectedSku)}`;
+    const destination = destinationType === 'home' ? '/' : `/p/${encodeURIComponent(effectiveSku)}`;
 
     // Normalização do código
     const cleanCode = code
@@ -128,8 +135,8 @@ export function CreateTrackedLinkModal({
 
       onCreated();
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Falha ao salvar link rastreável.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Falha ao salvar link rastreável.');
     } finally {
       setIsSubmitting(false);
     }
@@ -218,7 +225,7 @@ export function CreateTrackedLinkModal({
 
             {destinationType === 'product' && (
               <select
-                value={selectedSku}
+                value={effectiveSku}
                 onChange={(e) => handleProductChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E9D9CD] focus:outline-none focus:border-[#7A3F51] bg-[#FAF7F8]"
               >

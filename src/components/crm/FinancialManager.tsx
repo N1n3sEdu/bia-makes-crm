@@ -1,36 +1,45 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { 
-  DollarSign, 
-  TrendingUp, 
-  ArrowDownRight, 
-  ArrowUpRight, 
-  CheckCircle, 
-  Percent, 
-  FileSpreadsheet, 
-  Calendar, 
-  Layers, 
-  Globe, 
-  Instagram, 
-  Facebook, 
-  MessageCircle, 
-  ShoppingBag, 
-  ExternalLink, 
-  Store, 
-  RefreshCw, 
-  Clock, 
-  BarChart3, 
-  Download, 
-  Filter, 
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  DollarSign,
+  Download,
+  Globe,
+  Instagram,
+  Facebook,
+  MessageCircle,
+  ShoppingBag,
+  Store,
+  Clock,
+  CheckCircle2,
   AlertTriangle,
-  ChevronRight,
-  ShieldCheck,
-  Zap,
-  ArrowRight
+  Pencil,
+  Check,
+  X,
+  CreditCard,
+  Package,
+  TrendingUp,
+  RotateCcw,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Calendar,
+  Layers,
+  TrendingDown,
+  Truck,
 } from "lucide-react";
-import { FinancialMetric, MarketplaceChannel, Order, OrderStatus, ChannelType } from "@/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  ChannelType,
+  FinancialMetric,
+  MarketplaceChannel,
+  Order,
+  OrderStatus,
+  Product,
+} from "@/types";
+import {
+  formatCurrency,
+  formatDate,
+  resolveOrderCompanyShippingCost,
+} from "@/lib/utils";
 import { useBiaMakes } from "@/context/BiaMakesContext";
 
 interface FinancialManagerProps {
@@ -39,286 +48,817 @@ interface FinancialManagerProps {
   orders?: Order[];
 }
 
-type PeriodType = "today" | "7days" | "current" | "12months";
-type ActiveTabType = "overview" | "dre" | "history";
+type PeriodType = "today" | "7days" | "current" | "12months" | "all";
+type ExtractFilterType = "all" | "confirmed" | "pending" | "refunded";
 
-const MONTHLY_12_MONTHS_HISTORY = [
-  { month: "Dez/25", gross: 31200, net: 9800, ordersCount: 260, margin: 31.4 },
-  { month: "Jan/26", gross: 28500, net: 8900, ordersCount: 235, margin: 31.2 },
-  { month: "Fev/26", gross: 32400, net: 10400, ordersCount: 270, margin: 32.1 },
-  { month: "Mar/26", gross: 34100, net: 11100, ordersCount: 285, margin: 32.5 },
-  { month: "Abr/26", gross: 35800, net: 11800, ordersCount: 300, margin: 33.0 },
-  { month: "Mai/26", gross: 38200, net: 12900, ordersCount: 320, margin: 33.8 },
-  { month: "Jun/26", gross: 39900, net: 13600, ordersCount: 335, margin: 34.1 },
-  { month: "Jul/26", gross: 41500, net: 14400, ordersCount: 350, margin: 34.7 },
-  { month: "Ago/26", gross: 43200, net: 15100, ordersCount: 365, margin: 35.0 },
-  { month: "Set/26", gross: 45600, net: 16180, ordersCount: 385, margin: 35.5 },
-  { month: "Out/26", gross: 47200, net: 16900, ordersCount: 400, margin: 35.8 },
-  { month: "Nov/26 (Atual)", gross: 48771.10, net: 17573.15, ordersCount: 412, margin: 36.0 },
+const MONTHLY_OPEX_STORAGE_KEY = "biamakes_monthly_opex_v1";
+
+const CONFIRMED_STATUSES: OrderStatus[] = [
+  "PAGO",
+  "SEPARACAO",
+  "ENVIADO",
+  "CONCLUIDO",
 ];
+
+const REFUNDED_STATUSES: OrderStatus[] = ["DEVOLUCAO", "CANCELADO"];
+
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDENTE: "Aguardando Pagto",
+  PAGO: "Pago (No Caixa)",
+  SEPARACAO: "Em Separação",
+  ENVIADO: "Enviado",
+  CONCLUIDO: "Concluído",
+  DEVOLUCAO: "Devolvido",
+  CANCELADO: "Cancelado",
+};
+
+const CHANNEL_DEFAULTS: Record<
+  string,
+  { label: string; color: string; feePct: number; icon: string }
+> = {
+  SITE: {
+    label: "Site Bia Makes (Loja Oficial)",
+    color: "#7A3F51",
+    feePct: 0,
+    icon: "site",
+  },
+  INSTAGRAM: {
+    label: "Instagram Shopping / Direct",
+    color: "#E1306C",
+    feePct: 3.5,
+    icon: "instagram",
+  },
+  FACEBOOK: {
+    label: "Facebook Loja / Meta",
+    color: "#1877F2",
+    feePct: 3.5,
+    icon: "facebook",
+  },
+  WHATSAPP: {
+    label: "WhatsApp Vendas VIP",
+    color: "#25D366",
+    feePct: 0,
+    icon: "whatsapp",
+  },
+  MERCADO_LIVRE: {
+    label: "Mercado Livre",
+    color: "#EAB308",
+    feePct: 16.0,
+    icon: "mercadolivre",
+  },
+  SHOPEE: {
+    label: "Shopee",
+    color: "#F97316",
+    feePct: 14.0,
+    icon: "shopee",
+  },
+  AMAZON: {
+    label: "Amazon Brasil",
+    color: "#0284C7",
+    feePct: 15.0,
+    icon: "amazon",
+  },
+  TIKTOK: {
+    label: "TikTok Shop",
+    color: "#EC4899",
+    feePct: 10.0,
+    icon: "tiktok",
+  },
+  SHEIN: {
+    label: "Shein Marketplace",
+    color: "#6B7280",
+    feePct: 12.0,
+    icon: "shein",
+  },
+  BALCAO: {
+    label: "Balcão / Loja Física",
+    color: "#9C5B6F",
+    feePct: 0,
+    icon: "balcao",
+  },
+};
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getChannelDisplayName(code: string, channels: MarketplaceChannel[]): string {
+  const found = channels.find((c) => c.code === code);
+  if (found) return found.name;
+  return CHANNEL_DEFAULTS[code]?.label || code;
+}
+
+function getChannelColor(code: string, channels: MarketplaceChannel[]): string {
+  const found = channels.find((c) => c.code === code);
+  if (found && found.color) return found.color;
+  return CHANNEL_DEFAULTS[code]?.color || "#7A3F51";
+}
+
+function renderChannelIcon(code: string) {
+  switch (code) {
+    case "SITE":
+      return <Globe className="w-4 h-4 text-[#7A3F51]" />;
+    case "INSTAGRAM":
+      return <Instagram className="w-4 h-4 text-[#E1306C]" />;
+    case "FACEBOOK":
+      return <Facebook className="w-4 h-4 text-[#1877F2]" />;
+    case "WHATSAPP":
+      return <MessageCircle className="w-4 h-4 text-[#25D366]" />;
+    case "BALCAO":
+      return <Store className="w-4 h-4 text-[#9C5B6F]" />;
+    default:
+      return <ShoppingBag className="w-4 h-4 text-[#C69A76]" />;
+  }
+}
+
+function isOrderInPeriod(
+  orderDateIso: string,
+  period: PeriodType,
+  now: Date
+): boolean {
+  if (period === "all") return true;
+  const d = new Date(orderDateIso);
+  if (isNaN(d.getTime())) return false;
+
+  if (period === "today") {
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  }
+
+  if (period === "7days") {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return d >= sevenDaysAgo;
+  }
+
+  if (period === "current") {
+    return (
+      d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+    );
+  }
+
+  if (period === "12months") {
+    const twelveMonthsAgo = new Date(
+      now.getFullYear(),
+      now.getMonth() - 11,
+      1
+    );
+    return d >= twelveMonthsAgo;
+  }
+
+  return true;
+}
+
+function computeOrderBreakdown(
+  order: Order,
+  products: Product[],
+  channelFeeMap: Record<string, number>
+) {
+  const feePct =
+    channelFeeMap[order.channel] ??
+    CHANNEL_DEFAULTS[order.channel]?.feePct ??
+    0;
+  const channelFee = roundCurrency(order.totalAmount * (feePct / 100));
+
+  let cmv = 0;
+  order.items.forEach((item) => {
+    const prod = products.find(
+      (p) =>
+        p.id === item.productId ||
+        p.sku === item.sku ||
+        p.variations?.some((v) => v.sku === item.sku)
+    );
+    const unitCost =
+      prod && typeof prod.costPrice === "number"
+        ? prod.costPrice
+        : roundCurrency(item.price * 0.38);
+    cmv += unitCost * item.quantity;
+  });
+  cmv = roundCurrency(cmv);
+  const shippingCost = resolveOrderCompanyShippingCost(order);
+
+  const totalOrderCosts = roundCurrency(cmv + channelFee + shippingCost);
+  const orderProfit = roundCurrency(order.totalAmount - totalOrderCosts);
+
+  return {
+    cmv,
+    channelFee,
+    shippingCost,
+    totalOrderCosts,
+    orderProfit,
+  };
+}
 
 export function FinancialManager({
   financial,
   channels,
   orders: propOrders,
 }: FinancialManagerProps) {
-  const { products, orders: ctxOrders } = useBiaMakes();
-  const orders = propOrders && propOrders.length > 0 ? propOrders : ctxOrders;
+  const { products, orders: ctxOrders, setCrmActiveTab } = useBiaMakes();
+  const orders = propOrders !== undefined ? propOrders : ctxOrders;
+
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("current");
-  const [activeTab, setActiveTab] = useState<ActiveTabType>("overview");
+  const [extractFilter, setExtractFilter] = useState<ExtractFilterType>("all");
+  const [selectedChannelKey, setSelectedChannelKey] = useState<string | null>(
+    null
+  );
+  const [hoveredMonthIndex, setHoveredMonthIndex] = useState<number | null>(
+    null
+  );
 
-  // Vendas do dia em tempo real - rigorosamente integradas aos pedidos com status ativo
-  const todayMetrics = useMemo(() => {
+  // Gastos Fixos Operacionais editáveis persistidos no localStorage
+  const [monthlyOpex, setMonthlyOpex] = useState<number>(0);
+  const [isEditingOpex, setIsEditingOpex] = useState(false);
+  const [opexDraft, setOpexDraft] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MONTHLY_OPEX_STORAGE_KEY);
+      if (saved !== null) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          setMonthlyOpex(parsed);
+        }
+      } else if (financial.operatingExpenses > 0) {
+        setMonthlyOpex(financial.operatingExpenses);
+      }
+    } catch {
+      // Ignora erro de localStorage
+    }
+  }, [financial.operatingExpenses]);
+
+  const handleOpenEditOpex = () => {
+    setOpexDraft(monthlyOpex > 0 ? String(monthlyOpex) : "");
+    setIsEditingOpex(true);
+  };
+
+  const handleSaveOpex = () => {
+    const raw = opexDraft.trim();
+    const normalized = raw.includes(",")
+      ? raw.replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")
+      : raw.replace(/[^\d.]/g, "");
+    const parsed = Number(normalized);
+    const validValue =
+      Number.isFinite(parsed) && parsed >= 0 ? roundCurrency(parsed) : 0;
+    setMonthlyOpex(validValue);
+    try {
+      localStorage.setItem(MONTHLY_OPEX_STORAGE_KEY, String(validValue));
+    } catch {
+      // Ignora erro de gravação
+    }
+    setIsEditingOpex(false);
+  };
+
+  const channelFeeMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    channels.forEach((c) => {
+      map[c.code] = typeof c.feePercentage === "number" ? c.feePercentage : 0;
+    });
+    return map;
+  }, [channels]);
+
+  // Resumo Financeiro Consolidado Reativo ao Período
+  const summary = useMemo(() => {
     const now = new Date();
-    const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth();
-    const todayDate = now.getDate();
+    const periodOrders = orders.filter((o) =>
+      isOrderInPeriod(o.createdAt, selectedPeriod, now)
+    );
 
-    const activeStatuses: OrderStatus[] = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
+    const confirmedOrders = periodOrders.filter((o) =>
+      CONFIRMED_STATUSES.includes(o.status)
+    );
+    const pendingOrders = periodOrders.filter((o) => o.status === "PENDENTE");
+    const refundedOrders = periodOrders.filter((o) =>
+      REFUNDED_STATUSES.includes(o.status)
+    );
 
-    const todaysActiveOrders = orders.filter((o) => {
-      if (!activeStatuses.includes(o.status)) return false;
-      const orderDate = new Date(o.createdAt);
-      if (isNaN(orderDate.getTime())) return false;
-      return (
-        orderDate.getFullYear() === todayYear &&
-        orderDate.getMonth() === todayMonth &&
-        orderDate.getDate() === todayDate
+    const allPendingCount = orders.filter((o) => o.status === "PENDENTE").length;
+    const allPendingTotal = roundCurrency(
+      orders
+        .filter((o) => o.status === "PENDENTE")
+        .reduce((acc, o) => acc + o.totalAmount, 0)
+    );
+
+    let gross = 0;
+    let totalCmv = 0;
+    let totalFees = 0;
+    let totalShippingCost = 0;
+    let freeShippingSubsidizedCount = 0;
+    let subsidizedFreeShippingTotal = 0;
+
+    const orderBreakdowns = new Map<
+      string,
+      ReturnType<typeof computeOrderBreakdown>
+    >();
+
+    periodOrders.forEach((o) => {
+      orderBreakdowns.set(
+        o.id,
+        computeOrderBreakdown(o, products, channelFeeMap)
       );
     });
 
-    const totalRevenue = Math.round(todaysActiveOrders.reduce((acc, o) => acc + o.totalAmount, 0) * 100) / 100;
-    const count = todaysActiveOrders.length;
-    const ticketMedio = count > 0 ? Math.round((totalRevenue / count) * 100) / 100 : 0;
+    confirmedOrders.forEach((o) => {
+      const b = orderBreakdowns.get(o.id)!;
+      gross += o.totalAmount;
+      totalCmv += b.cmv;
+      totalFees += b.channelFee;
+      totalShippingCost += b.shippingCost;
+      const customerShip = typeof o.shippingAmount === "number" ? o.shippingAmount : 0;
+      if (customerShip === 0 || o.isFreeShippingSubsidized) {
+        freeShippingSubsidizedCount += 1;
+        subsidizedFreeShippingTotal += b.shippingCost;
+      }
+    });
 
-    return {
-      total: totalRevenue,
-      count,
-      ticketMedio,
-      lastUpdated: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-    };
-  }, [orders]);
+    gross = roundCurrency(gross);
+    totalCmv = roundCurrency(totalCmv);
+    totalFees = roundCurrency(totalFees);
+    totalShippingCost = roundCurrency(totalShippingCost);
+    subsidizedFreeShippingTotal = roundCurrency(subsidizedFreeShippingTotal);
+    const averageShippingPerOrder =
+      confirmedOrders.length > 0
+        ? roundCurrency(totalShippingCost / confirmedOrders.length)
+        : 0;
 
-  // Cálculos consolidados por período selecionado com vínculo real aos pedidos e DRE
-  const periodData = useMemo(() => {
-    const now = new Date();
-    const activeStatuses: OrderStatus[] = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
-
-    // Filtrar pedidos conforme período
-    let filteredOrders = orders.filter(o => activeStatuses.includes(o.status));
-    let opex = financial.operatingExpenses;
-    let label = "Mês Atual (Vigente)";
-
-    if (selectedPeriod === "today") {
-      label = "Hoje (Operação em Tempo Real)";
-      const todayYear = now.getFullYear();
-      const todayMonth = now.getMonth();
-      const todayDate = now.getDate();
-
-      filteredOrders = filteredOrders.filter(o => {
-        const d = new Date(o.createdAt);
-        return !isNaN(d.getTime()) &&
-          d.getFullYear() === todayYear &&
-          d.getMonth() === todayMonth &&
-          d.getDate() === todayDate;
-      });
-      opex = Math.round((financial.operatingExpenses / 30) * 100) / 100;
-    } else if (selectedPeriod === "7days") {
-      label = "Últimos 7 Dias Corridos";
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredOrders = filteredOrders.filter(o => {
-        const d = new Date(o.createdAt);
-        return !isNaN(d.getTime()) && d >= sevenDaysAgo;
-      });
-      opex = Math.round(((financial.operatingExpenses * 7) / 30) * 100) / 100;
-    } else if (selectedPeriod === "current") {
-      label = "Mês Atual (Vigente)";
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      filteredOrders = filteredOrders.filter(o => {
-        const d = new Date(o.createdAt);
-        return !isNaN(d.getTime()) &&
-          d.getFullYear() === currentYear &&
-          d.getMonth() === currentMonth;
-      });
-      opex = financial.operatingExpenses;
-    } else if (selectedPeriod === "12months") {
-      label = "Últimos 12 Meses Consolidados";
-      opex = financial.operatingExpenses * 12;
+    let periodOpex = 0;
+    if (monthlyOpex > 0) {
+      if (selectedPeriod === "today") {
+        periodOpex = roundCurrency(monthlyOpex / 30);
+      } else if (selectedPeriod === "7days") {
+        periodOpex = roundCurrency((monthlyOpex * 7) / 30);
+      } else if (selectedPeriod === "12months") {
+        periodOpex = roundCurrency(monthlyOpex * 12);
+      } else {
+        periodOpex = roundCurrency(monthlyOpex);
+      }
     }
 
-    // Se o filtro específico por data não encontrar pedidos mockados (ex: período selecionado é 'today' e ainda não há pedidos no dia),
-    // usamos a contagem e valores exatos do filtro, sem inventar dados artificiais.
-    const gross = Math.round(filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0) * 100) / 100;
+    const totalCosts = roundCurrency(
+      totalCmv + totalFees + totalShippingCost + periodOpex
+    );
+    const netProfit = roundCurrency(gross - totalCosts);
+    const marginPct = gross > 0 ? roundCurrency((netProfit / gross) * 100) : 0;
+    const cmvPct = gross > 0 ? roundCurrency((totalCmv / gross) * 100) : 0;
+    const feesPct = gross > 0 ? roundCurrency((totalFees / gross) * 100) : 0;
+    const shippingPct =
+      gross > 0 ? roundCurrency((totalShippingCost / gross) * 100) : 0;
+    const opexPct = gross > 0 ? roundCurrency((periodOpex / gross) * 100) : 0;
+    const costsPct = gross > 0 ? roundCurrency((totalCosts / gross) * 100) : 0;
+    const ticketAverage =
+      confirmedOrders.length > 0
+        ? roundCurrency(gross / confirmedOrders.length)
+        : 0;
 
-    // Mapa de taxas reais dos canais
-    const channelFeeMap: Record<string, number> = {};
-    channels.forEach(c => {
-      channelFeeMap[c.code] = typeof c.feePercentage === "number" ? c.feePercentage : 0;
-    });
-
-    let fees = 0;
-    filteredOrders.forEach(o => {
-      const feePct = channelFeeMap[o.channel] ?? 0;
-      fees += o.totalAmount * (feePct / 100);
-    });
-    fees = Math.round(fees * 100) / 100;
-
-    // Custo das mercadorias vendidas real (CMV)
-    let cmv = 0;
-    filteredOrders.forEach(o => {
-      o.items.forEach(item => {
-        const prod = products.find(p => p.id === item.productId || p.sku === item.sku);
-        const unitCost = prod && typeof prod.costPrice === "number" ? prod.costPrice : item.price * 0.38;
-        cmv += unitCost * item.quantity;
-      });
-    });
-    cmv = Math.round(cmv * 100) / 100;
-
-    const finalOpex = gross > 0 ? opex : 0;
-    const totalCosts = Math.round((fees + cmv + finalOpex) * 100) / 100;
-    const net = gross > 0 ? Math.round((gross - totalCosts) * 100) / 100 : 0;
-    const margin = gross > 0 ? Number(((net / gross) * 100).toFixed(1)) : 0;
-    const ordersCount = filteredOrders.length;
-
-    // Estornos no período
-    const refundedOrders = orders.filter(o => o.status === "DEVOLUCAO" || o.status === "CANCELADO");
-    const refundedAmount = refundedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const pendingTotal = roundCurrency(
+      pendingOrders.reduce((acc, o) => acc + o.totalAmount, 0)
+    );
+    const refundedTotal = roundCurrency(
+      refundedOrders.reduce((acc, o) => acc + o.totalAmount, 0)
+    );
 
     return {
-      label,
+      periodOrders,
+      confirmedOrders,
+      pendingOrders,
+      refundedOrders,
+      orderBreakdowns,
       gross,
-      fees,
-      cmv,
-      opex: finalOpex,
+      totalCmv,
+      totalFees,
+      totalShippingCost,
+      averageShippingPerOrder,
+      freeShippingSubsidizedCount,
+      subsidizedFreeShippingTotal,
+      periodOpex,
       totalCosts,
-      net,
-      margin,
-      ordersCount,
-      refundedAmount,
-      refundedOrdersCount: refundedOrders.length,
+      netProfit,
+      marginPct,
+      cmvPct,
+      feesPct,
+      shippingPct,
+      opexPct,
+      costsPct,
+      ticketAverage,
+      pendingTotal,
+      refundedTotal,
+      allPendingCount,
+      allPendingTotal,
     };
-  }, [selectedPeriod, orders, products, channels, financial]);
+  }, [orders, products, channelFeeMap, selectedPeriod, monthlyOpex]);
 
-  // Porcentagens sobre faturamento bruto
-  const costsPercentage = periodData.gross > 0 
-    ? ((periodData.totalCosts / periodData.gross) * 100).toFixed(1)
-    : "0.0";
-  const feesPct = periodData.gross > 0 ? Math.min(100, Math.round((periodData.fees / periodData.gross) * 100)) : 0;
-  const cmvPct = periodData.gross > 0 ? Math.min(100, Math.round((periodData.cmv / periodData.gross) * 100)) : 0;
-  const opexPct = periodData.gross > 0 ? Math.min(100, Math.round((periodData.opex / periodData.gross) * 100)) : 0;
-  const netPct = periodData.gross > 0 ? Math.max(0, Math.min(100, Math.round((periodData.net / periodData.gross) * 100))) : 0;
-
-  // Mix de Canais com cálculo real baseado nos pedidos faturados de orders e taxas de channels
-  const channelMix = useMemo(() => {
-    const activeStatuses: OrderStatus[] = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
-    const activeOrders = orders.filter((o) => activeStatuses.includes(o.status));
-
-    const revenueByChannel: Record<string, { count: number; revenue: number }> = {};
-    activeOrders.forEach((o) => {
-      if (!revenueByChannel[o.channel]) {
-        revenueByChannel[o.channel] = { count: 0, revenue: 0 };
+  // Breakdown por Canal (Origem das Vendas & Marketplaces)
+  const channelBreakdown = useMemo(() => {
+    const byChannel = new Map<
+      string,
+      {
+        count: number;
+        revenue: number;
+        fees: number;
+        cmv: number;
+        profit: number;
       }
-      revenueByChannel[o.channel].count += 1;
-      revenueByChannel[o.channel].revenue += o.totalAmount;
+    >();
+
+    summary.confirmedOrders.forEach((o) => {
+      const b = summary.orderBreakdowns.get(o.id)!;
+      const key = o.channel;
+      const existing = byChannel.get(key) || {
+        count: 0,
+        revenue: 0,
+        fees: 0,
+        cmv: 0,
+        profit: 0,
+      };
+      byChannel.set(key, {
+        count: existing.count + 1,
+        revenue: roundCurrency(existing.revenue + o.totalAmount),
+        fees: roundCurrency(existing.fees + b.channelFee),
+        cmv: roundCurrency(existing.cmv + b.cmv),
+        profit: roundCurrency(existing.profit + b.orderProfit),
+      });
     });
 
-    const totalRev = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const list: Array<{
+      code: string;
+      name: string;
+      color: string;
+      feePct: number;
+      count: number;
+      revenue: number;
+      fees: number;
+      cmv: number;
+      profit: number;
+      sharePct: number;
+    }> = [];
 
-    return channels.map((c) => {
-      const data = revenueByChannel[c.code] || { count: 0, revenue: 0 };
-      const share = totalRev > 0 ? ((data.revenue / totalRev) * 100).toFixed(1) : "0.0";
-      const shareNum = totalRev > 0 ? (data.revenue / totalRev) * 100 : 0;
-      return {
-        code: c.code,
-        name: c.name,
-        icon: c.code.toLowerCase(),
-        count: data.count,
-        revenue: data.revenue,
-        color: c.color || "#7A3F51",
-        fee: c.feePercentage || 0,
-        share,
-        shareNum,
+    // Lista canais conhecidos e garante presença visual de canais com vendas
+    const knownKeys = new Set(channels.map((c) => c.code));
+    Object.keys(CHANNEL_DEFAULTS).forEach((k) => knownKeys.add(k as ChannelType));
+
+    knownKeys.forEach((code) => {
+      const stats = byChannel.get(code) || {
+        count: 0,
+        revenue: 0,
+        fees: 0,
+        cmv: 0,
+        profit: 0,
       };
-    }).sort((a, b) => b.revenue - a.revenue);
-  }, [orders, channels]);
+      const fee =
+        channelFeeMap[code] ?? CHANNEL_DEFAULTS[code]?.feePct ?? 0;
+      const name = getChannelDisplayName(code, channels);
+      const color = getChannelColor(code, channels);
 
-  // Exportar CSV executivo
-  const handleExportCSV = () => {
-    const csvRows = [
-      ["METRICA FINANCEIRA (BIA MAKES)", "VALOR (R$)", "PARTICIPACAO (%)"],
-      ["Faturamento Bruto", periodData.gross.toFixed(2), "100.0%"],
-      ["(-) Comissoes de Marketplaces", (-periodData.fees).toFixed(2), `${feesPct}%`],
-      ["(-) Custo de Mercadorias Vendidas (CMV)", (-periodData.cmv).toFixed(2), `${cmvPct}%`],
-      ["(-) Despesas Operacionais Fixas", (-periodData.opex).toFixed(2), `${opexPct}%`],
-      ["(=) Resultado Liquido (Lucro Real)", periodData.net.toFixed(2), `${periodData.margin}%`],
-      [],
-      ["CANAL DE VENDA", "FATURAMENTO (R$)", "PARTICIPACAO (%)", "PEDIDOS", "TAXA COMISSAO (%)"],
-      ...channelMix.map(c => [c.name, c.revenue.toFixed(2), `${c.share}%`, c.count.toString(), `${c.fee}%`])
+      list.push({
+        code,
+        name,
+        color,
+        feePct: fee,
+        ...stats,
+        sharePct:
+          summary.gross > 0
+            ? roundCurrency((stats.revenue / summary.gross) * 100)
+            : 0,
+      });
+    });
+
+    return list.sort((a, b) => b.revenue - a.revenue);
+  }, [channels, channelFeeMap, summary]);
+
+  // Canal atualmente selecionado para detalhamento no gráfico de pizza
+  const activeSelectedChannel = useMemo(() => {
+    if (selectedChannelKey) {
+      const found = channelBreakdown.find((c) => c.code === selectedChannelKey);
+      if (found) return found;
+    }
+    // Fallback: canal com maior faturamento ou primeiro da lista
+    return channelBreakdown[0] || null;
+  }, [channelBreakdown, selectedChannelKey]);
+
+  // Fatias do Gráfico Donut SVG
+  const donutSlices = useMemo(() => {
+    const total = summary.gross;
+    const radius = 64;
+    const circumference = 2 * Math.PI * radius; // ~402.12
+    let accumulatedAngle = 0;
+
+    const activeChannels = channelBreakdown.filter((c) => c.revenue > 0);
+
+    if (total <= 0 || activeChannels.length === 0) {
+      return {
+        circumference,
+        radius,
+        slices: [] as Array<{
+          code: string;
+          strokeDasharray: string;
+          strokeDashoffset: number;
+          color: string;
+          name: string;
+          sharePct: number;
+          revenue: number;
+        }>,
+      };
+    }
+
+    const slices = activeChannels.map((ch) => {
+      const fraction = ch.revenue / total;
+      const strokeLength = fraction * circumference;
+      const offset = -accumulatedAngle;
+      accumulatedAngle += strokeLength;
+
+      return {
+        code: ch.code,
+        strokeDasharray: `${strokeLength.toFixed(2)} ${circumference.toFixed(2)}`,
+        strokeDashoffset: offset,
+        color: ch.color,
+        name: ch.name,
+        sharePct: ch.sharePct,
+        revenue: ch.revenue,
+      };
+    });
+
+    return { circumference, radius, slices };
+  }, [summary.gross, channelBreakdown]);
+
+  // Relatório Histórico de Desempenho dos Últimos 12 Meses
+  const monthlyHistory = useMemo(() => {
+    const now = new Date();
+    const months: Array<{
+      key: string;
+      label: string;
+      year: number;
+      month: number;
+      gross: number;
+      cmv: number;
+      fees: number;
+      netProfit: number;
+      ordersCount: number;
+      marginPct: number;
+    }> = [];
+
+    const monthNames = [
+      "Jan",
+      "Fev",
+      "Mar",
+      "Abr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Set",
+      "Out",
+      "Nov",
+      "Dez",
     ];
 
-    const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(";")).join("\n");
-    const encodedUri = encodeURI(csvContent);
+    // Gera os últimos 12 meses cronologicamente (do mais antigo ao mês atual)
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const label = `${monthNames[m]}/${String(y).slice(2)}`;
+
+      months.push({
+        key,
+        label,
+        year: y,
+        month: m,
+        gross: 0,
+        cmv: 0,
+        fees: 0,
+        netProfit: 0,
+        ordersCount: 0,
+        marginPct: 0,
+      });
+    }
+
+    // Aloca pedidos confirmados da loja aos seus respectivos meses
+    orders.forEach((o) => {
+      if (!CONFIRMED_STATUSES.includes(o.status)) return;
+      const od = new Date(o.createdAt);
+      if (isNaN(od.getTime())) return;
+      const oKey = `${od.getFullYear()}-${String(od.getMonth() + 1).padStart(2, "0")}`;
+      const target = months.find((m) => m.key === oKey);
+      if (target) {
+        const b = computeOrderBreakdown(o, products, channelFeeMap);
+        target.gross += o.totalAmount;
+        target.cmv += b.cmv;
+        target.fees += b.channelFee;
+        target.netProfit += b.orderProfit;
+        target.ordersCount += 1;
+      }
+    });
+
+    // Subtrai despesa fixa mensal estimada se houver faturamento no mês
+    months.forEach((m) => {
+      m.gross = roundCurrency(m.gross);
+      m.cmv = roundCurrency(m.cmv);
+      m.fees = roundCurrency(m.fees);
+      if (monthlyOpex > 0 && m.gross > 0) {
+        m.netProfit = roundCurrency(m.netProfit - monthlyOpex);
+      } else {
+        m.netProfit = roundCurrency(m.netProfit);
+      }
+      m.marginPct =
+        m.gross > 0 ? roundCurrency((m.netProfit / m.gross) * 100) : 0;
+    });
+
+    const maxMonthGross = Math.max(1, ...months.map((m) => m.gross));
+    const total12MonthsGross = roundCurrency(
+      months.reduce((acc, m) => acc + m.gross, 0)
+    );
+    const total12MonthsNet = roundCurrency(
+      months.reduce((acc, m) => acc + m.netProfit, 0)
+    );
+    const total12MonthsOrders = months.reduce((acc, m) => acc + m.ordersCount, 0);
+
+    return {
+      months,
+      maxMonthGross,
+      total12MonthsGross,
+      total12MonthsNet,
+      total12MonthsOrders,
+    };
+  }, [orders, products, channelFeeMap, monthlyOpex]);
+
+  // Pedidos Filtrados para a Tabela de Auditoria (Extrato)
+  const extractOrders = useMemo(() => {
+    return summary.periodOrders.filter((o) => {
+      if (extractFilter === "confirmed")
+        return CONFIRMED_STATUSES.includes(o.status);
+      if (extractFilter === "pending") return o.status === "PENDENTE";
+      if (extractFilter === "refunded")
+        return REFUNDED_STATUSES.includes(o.status);
+      return true;
+    });
+  }, [summary.periodOrders, extractFilter]);
+
+  // Totais do Rodapé da Tabela de Auditoria
+  const extractFooterTotals = useMemo(() => {
+    const confirmedInView = extractOrders.filter((o) =>
+      CONFIRMED_STATUSES.includes(o.status)
+    );
+    let revenue = 0;
+    let cmvAndFees = 0;
+    let shipping = 0;
+    let costs = 0;
+    let profitBeforeOpex = 0;
+
+    confirmedInView.forEach((o) => {
+      const b = summary.orderBreakdowns.get(o.id)!;
+      revenue += o.totalAmount;
+      cmvAndFees += b.cmv + b.channelFee;
+      shipping += b.shippingCost;
+      costs += b.totalOrderCosts;
+      profitBeforeOpex += b.orderProfit;
+    });
+
+    revenue = roundCurrency(revenue);
+    cmvAndFees = roundCurrency(cmvAndFees);
+    shipping = roundCurrency(shipping);
+    costs = roundCurrency(costs);
+    profitBeforeOpex = roundCurrency(profitBeforeOpex);
+
+    const includesOpex =
+      (extractFilter === "all" || extractFilter === "confirmed") &&
+      summary.periodOpex > 0;
+    const totalCostsWithOpex = includesOpex
+      ? roundCurrency(costs + summary.periodOpex)
+      : costs;
+    const finalProfit = includesOpex
+      ? roundCurrency(profitBeforeOpex - summary.periodOpex)
+      : profitBeforeOpex;
+
+    return {
+      confirmedCount: confirmedInView.length,
+      revenue,
+      cmvAndFees,
+      shipping,
+      costs,
+      totalCostsWithOpex,
+      profitBeforeOpex,
+      finalProfit,
+      includesOpex,
+    };
+  }, [extractOrders, extractFilter, summary]);
+
+  // Exportar Relatório em CSV / Excel
+  const handleDownloadCsv = () => {
+    const periodLabelMap: Record<PeriodType, string> = {
+      today: "Hoje",
+      "7days": "Ultimos 7 Dias",
+      current: "Este Mes",
+      "12months": "Ultimos 12 Meses",
+      all: "Todo o Periodo",
+    };
+
+    const rows: string[][] = [
+      ["RELATORIO FINANCEIRO BIA MAKES - DRE E ANALISE GERENCIAL", periodLabelMap[selectedPeriod], ""],
+      ["Data de Emissao", new Date().toLocaleString("pt-BR"), ""],
+      [],
+      ["INDICADOR", "VALOR (R$)", "PARTICIPACAO (%)"],
+      ["Faturamento Bruto (Entrou)", summary.gross.toFixed(2).replace(".", ","), "100,00%"],
+      ["(-) Custo de Mercadorias Vendidas (CMV)", (-summary.totalCmv).toFixed(2).replace(".", ","), `${summary.cmvPct.toFixed(2).replace(".", ",")}%`],
+      ["(-) Comissoes & Taxas dos Canais", (-summary.totalFees).toFixed(2).replace(".", ","), `${summary.feesPct.toFixed(2).replace(".", ",")}%`],
+      ["(-) Frete das Encomendas (Pago pela Loja)", (-summary.totalShippingCost).toFixed(2).replace(".", ","), `${summary.shippingPct.toFixed(2).replace(".", ",")}%`],
+      ["(=) Margem de Contribuicao", (summary.gross - summary.totalCmv - summary.totalFees - summary.totalShippingCost).toFixed(2).replace(".", ","), ""],
+      ["(-) Despesas Operacionais Fixas", (-summary.periodOpex).toFixed(2).replace(".", ","), `${summary.opexPct.toFixed(2).replace(".", ",")}%`],
+      ["(=) Lucro Liquido Real (Sobrou)", summary.netProfit.toFixed(2).replace(".", ","), `${summary.marginPct.toFixed(2).replace(".", ",")}%`],
+      [],
+      ["ORIGEM / CANAL DE VENDA", "PEDIDOS", "RECEITA (R$)", "TAXA (%)", "LUCRO LIQUIDO (R$)"],
+      ...channelBreakdown.map((ch) => [
+        `"${ch.name}"`,
+        String(ch.count),
+        ch.revenue.toFixed(2).replace(".", ","),
+        `${ch.feePct.toFixed(1).replace(".", ",")}%`,
+        ch.profit.toFixed(2).replace(".", ","),
+      ]),
+      [],
+      ["PEDIDO", "DATA", "CLIENTE", "CANAL", "TRANSPORTADORA", "STATUS", "VALOR PAGO (R$)", "CMV + TAXAS (R$)", "FRETE LOJA (R$)", "LUCRO (R$)"],
+      ...summary.periodOrders.map((o) => {
+        const b = summary.orderBreakdowns.get(o.id)!;
+        const isConfirmed = CONFIRMED_STATUSES.includes(o.status);
+        return [
+          o.orderNumber,
+          formatDate(o.createdAt),
+          `"${o.customerName.replace(/"/g, '""')}"`,
+          getChannelDisplayName(o.channel, channels),
+          `"${(o.shippingCarrier || "Correios PAC").replace(/"/g, '""')}"`,
+          STATUS_LABELS[o.status] || o.status,
+          o.totalAmount.toFixed(2).replace(".", ","),
+          roundCurrency(b.cmv + b.channelFee).toFixed(2).replace(".", ","),
+          b.shippingCost.toFixed(2).replace(".", ","),
+          isConfirmed ? b.orderProfit.toFixed(2).replace(".", ",") : "0,00",
+        ];
+      }),
+    ];
+
+    const csvString = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `DRE_BiaMakes_${selectedPeriod}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `Financeiro_BiaMakes_${selectedPeriod}_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const renderChannelIcon = (icon: string) => {
-    switch (icon) {
-      case "instagram": return <Instagram className="w-4 h-4 text-[#E1306C]" />;
-      case "whatsapp": return <MessageCircle className="w-4 h-4 text-[#25D366]" />;
-      case "facebook": return <Facebook className="w-4 h-4 text-[#1877F2]" />;
-      case "mercadolivre":
-      case "shopee":
-      case "tiktok":
-      case "site":
-      default: return <Store className="w-4 h-4 text-[#7A3F51]" />;
-    }
-  };
+  // Alturas Proporcionais para o Gráfico de Torres
+  const towerScale = Math.max(summary.gross, summary.totalCosts, 1);
+  const grossHeightPct = summary.gross > 0 ? (summary.gross / towerScale) * 100 : 0;
+  const cmvHeightPct = summary.gross > 0 ? (summary.totalCmv / towerScale) * 100 : 0;
+  const feesHeightPct = summary.gross > 0 ? (summary.totalFees / towerScale) * 100 : 0;
+  const shippingHeightPct =
+    summary.gross > 0 ? (summary.totalShippingCost / towerScale) * 100 : 0;
+  const opexHeightPct = summary.gross > 0 ? (summary.periodOpex / towerScale) * 100 : 0;
+  const netHeightPct =
+    summary.netProfit > 0 ? (summary.netProfit / towerScale) * 100 : 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      
-      {/* 1. CABEÇALHO EXECUTIVO E CONTROLES GLOBAIS */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E9D9CD] shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+      {/* ================================================================= */}
+      {/* 1. CABEÇALHO EXECUTIVO + SELETOR DE PERÍODO                       */}
+      {/* ================================================================= */}
+      <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#7A3F51] to-[#9C5B6F] text-white flex items-center justify-center shadow-md">
-              <DollarSign className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#39313A] tracking-tight">
-                Gestão Financeira & DRE Gerencial
-              </h2>
-              <p className="text-xs text-[#39313A]/70 mt-0.5">
-                Visão executiva e contábil em tempo real do faturamento, custos operacionais e margens líquidas.
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full bg-[#FAF0F4] border border-[#E9D9CD] text-[11px] font-extrabold text-[#7A3F51] uppercase tracking-wider">
+              Controladoria & BI
+            </span>
+            <span className="text-xs text-gray-500 font-medium">
+              Sincronização em Tempo Real
+            </span>
           </div>
+          <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-[#39313A] tracking-tight mt-1.5">
+            Gestão Financeira & DRE Gerencial
+          </h2>
+          <p className="text-xs sm:text-sm text-[#39313A]/75 mt-0.5">
+            Acompanhamento profissional de faturamento bruto, custos de produtos (CMV), taxas de canais e lucro líquido real no caixa.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
-          {/* Seletor de Período Global em Pílulas */}
-          <div className="bg-[#FAF7F8] p-1 rounded-2xl border border-[#E9D9CD] flex items-center gap-1 shadow-inner">
-            {(
-              [
-                { id: "today", label: "Hoje" },
-                { id: "7days", label: "7 Dias" },
-                { id: "current", label: "Mês Atual" },
-                { id: "12months", label: "12 Meses" },
-              ] as { id: PeriodType; label: string }[]
-            ).map((p) => (
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-full bg-[#FAF7F8] border border-[#E9D9CD]">
+            {[
+              { id: "today" as const, label: "Hoje" },
+              { id: "7days" as const, label: "7 Dias" },
+              { id: "current" as const, label: "Este Mês" },
+              { id: "12months" as const, label: "Últimos 12 Meses" },
+              { id: "all" as const, label: "Todo o Período" },
+            ].map((p) => (
               <button
                 key={p.id}
+                type="button"
                 onClick={() => setSelectedPeriod(p.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   selectedPeriod === p.id
                     ? "bg-[#7A3F51] text-white shadow-sm"
-                    : "text-gray-600 hover:text-[#7A3F51] hover:bg-white/60"
+                    : "text-[#39313A] hover:bg-[#F5DDE5]/60"
                 }`}
               >
                 {p.label}
@@ -326,580 +866,1167 @@ export function FinancialManager({
             ))}
           </div>
 
-          {/* Botão de Exportação CSV */}
           <button
-            onClick={handleExportCSV}
-            className="px-4 py-2 bg-white hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] hover:border-[#9C5B6F] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-            title="Baixar planilha estruturada em CSV"
+            type="button"
+            onClick={handleDownloadCsv}
+            className="px-4 py-2 rounded-full bg-[#FAF0F4] hover:bg-[#F5DDE5] text-[#7A3F51] border border-[#E9D9CD] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
           >
-            <Download className="w-4 h-4 text-[#9C5B6F]" />
-            <span>Exportar (CSV)</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>Exportar Relatório</span>
           </button>
         </div>
       </div>
 
-      {/* 2. FAIXA SUPERIOR: 4 HERO CARDS DE KPIS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Card 1: Faturamento Bruto */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E9D9CD] shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Faturamento Bruto
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" />
-              +18.4%
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#7A3F51] tracking-tight">
-              {formatCurrency(periodData.gross)}
+      {/* BANNER INFORMATIVO SE HOUVER PEDIDOS PENDENTES AGUARDANDO APROVAÇÃO */}
+      {summary.allPendingCount > 0 && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/90 border-2 border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-700 shrink-0">
+              <Clock className="w-5 h-5" />
             </div>
-            <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
-              <span>{periodData.ordersCount} pedidos faturados</span>
-              {periodData.refundedAmount > 0 && (
-                <span className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full">
-                  -{formatCurrency(periodData.refundedAmount)} estornado
-                </span>
-              )}
+            <div>
+              <h3 className="text-sm font-extrabold text-amber-950">
+                {summary.allPendingCount}{" "}
+                {summary.allPendingCount === 1
+                  ? "pedido aguardando confirmação de pagamento"
+                  : "pedidos aguardando confirmação de pagamento"}{" "}
+                ({formatCurrency(summary.allPendingTotal)})
+              </h3>
+              <p className="text-xs text-amber-900 mt-0.5 leading-relaxed">
+                Esses pedidos estão na fila com status <strong>PENDENTE</strong>. Assim que marcados como <strong>PAGO</strong> na aba Pedidos, os valores e lucros entram automaticamente nos gráficos e no DRE abaixo.
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* Card 2: Custos Totais Deduzidos */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E9D9CD] shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Custos Totais Deduzidos
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-              {costsPercentage}% do faturamento
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 tracking-tight">
-              -{formatCurrency(periodData.totalCosts)}
-            </div>
-            <div className="text-[11px] text-gray-500 mt-2">
-              CMV: {formatCurrency(periodData.cmv)} • Comissões: {formatCurrency(periodData.fees)}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setCrmActiveTab("orders")}
+            className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 cursor-pointer transition-colors shadow-xs"
+          >
+            Ver Pedidos Pendentes
+          </button>
         </div>
+      )}
 
-        {/* Card 3: Lucro Líquido Real */}
-        <div className={`p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all ${
-          periodData.net >= 0 
-            ? "bg-gradient-to-br from-emerald-50/60 via-white to-white border-emerald-200" 
-            : "bg-gradient-to-br from-rose-50/60 via-white to-white border-rose-200"
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              {periodData.net >= 0 ? "Lucro Líquido Real" : "Prejuízo Operacional"}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-              periodData.net >= 0 
-                ? "bg-emerald-600 text-white shadow-sm" 
-                : "bg-rose-600 text-white shadow-sm"
-            }`}>
-              Margem: {periodData.margin}%
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
-              periodData.net >= 0 ? "text-emerald-700" : "text-rose-700"
-            }`}>
-              {formatCurrency(periodData.net)}
-            </div>
-            <div className="text-xs text-gray-600 mt-2">
-              Retenção real após impostos, taxas e CMV
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Vendas do Dia (Ao Vivo) */}
-        <div className="bg-gradient-to-br from-[#FAF0F4] via-white to-white p-5 rounded-3xl border-2 border-[#9C5B6F]/30 shadow-sm hover:border-[#9C5B6F] transition-all relative">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#7A3F51] flex items-center gap-1.5">
-              <ShoppingBag className="w-3.5 h-3.5 text-[#9C5B6F]" />
-              Vendas do Dia
-            </span>
-            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Ao Vivo</span>
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-[#7A3F51] tracking-tight">
-              {formatCurrency(todayMetrics.total)}
-            </div>
-            <div className="text-xs text-[#39313A]/70 mt-2 flex items-center justify-between border-t border-[#E9D9CD]/50 pt-2">
-              <span className={`font-semibold ${todayMetrics.count > 0 ? "text-emerald-800" : "text-gray-500"}`}>
-                {todayMetrics.count > 0 
-                  ? `${todayMetrics.count} ${todayMetrics.count === 1 ? "pedido faturado hoje" : "pedidos faturados hoje"}`
-                  : "0 pedidos faturados hoje"}
+      {/* ================================================================= */}
+      {/* 2. CARDS EXECUTIVOS PRINCIPAIS (3 PILARES FINANCEIROS)             */}
+      {/* ================================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* CARD 1: FATURAMENTO BRUTO */}
+        <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#FAF0F4] rounded-bl-full -z-0 opacity-60" />
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A3F51]">
+                Faturamento Bruto
               </span>
-              <span className="text-[10px] text-gray-500">
-                {todayMetrics.total > 0 && financial.grossRevenue > 0
-                  ? `${((todayMetrics.total / financial.grossRevenue) * 100).toFixed(1)}% do mês`
-                  : `Atualizado às ${todayMetrics.lastUpdated}`}
-              </span>
+              <div className="w-9 h-9 rounded-2xl bg-[#FAF0F4] border border-[#E9D9CD] flex items-center justify-center text-[#7A3F51]">
+                <DollarSign className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-3xl font-extrabold text-[#7A3F51] tracking-tight">
+              {formatCurrency(summary.gross)}
+            </div>
+          </div>
+          <div className="relative z-10 pt-4 mt-4 border-t border-[#E9D9CD]/70 flex items-center justify-between text-xs text-[#39313A]/75 font-semibold">
+            <span>
+              {summary.confirmedOrders.length}{" "}
+              {summary.confirmedOrders.length === 1 ? "venda paga" : "vendas pagas"}
+            </span>
+            <span>Ticket Médio: {formatCurrency(summary.ticketAverage)}</span>
           </div>
         </div>
 
+        {/* CARD 2: CUSTOS TOTAIS & DEDUÇÕES */}
+        <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full -z-0 opacity-60" />
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-600">
+                Custos & Deduções Totais
+              </span>
+              <div className="w-9 h-9 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                <TrendingDown className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-extrabold text-rose-600 tracking-tight">
+              - {formatCurrency(summary.totalCosts)}
+            </div>
+          </div>
+          <div className="relative z-10 pt-4 mt-4 border-t border-rose-100 flex items-center justify-between gap-2 text-xs text-[#39313A]/75 font-semibold">
+            <span className="truncate">
+              CMV: {formatCurrency(summary.totalCmv)} · Taxas: {formatCurrency(summary.totalFees)} · Frete: {formatCurrency(summary.totalShippingCost)}
+            </span>
+            <span className="font-bold text-rose-600 shrink-0">
+              {summary.costsPct.toFixed(1).replace(".", ",")}% da receita
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 3: LUCRO LÍQUIDO REAL NO BOLSO */}
+        <div
+          className={`p-6 rounded-3xl border-2 shadow-sm relative overflow-hidden flex flex-col justify-between ${
+            summary.netProfit >= 0
+              ? "bg-emerald-50/70 border-emerald-400"
+              : "bg-rose-50/80 border-rose-400"
+          }`}
+        >
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span
+                className={`text-[11px] font-extrabold uppercase tracking-wider ${
+                  summary.netProfit >= 0 ? "text-emerald-800" : "text-rose-700"
+                }`}
+              >
+                Lucro Líquido Real (No Bolso)
+              </span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
+                  summary.netProfit >= 0
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : "bg-rose-100 text-rose-800 border-rose-300"
+                }`}
+              >
+                Margem: {summary.marginPct.toFixed(1).replace(".", ",")}%
+              </span>
+            </div>
+            <div
+              className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                summary.netProfit >= 0 ? "text-emerald-700" : "text-rose-700"
+              }`}
+            >
+              {summary.netProfit < 0
+                ? `- ${formatCurrency(Math.abs(summary.netProfit))}`
+                : formatCurrency(summary.netProfit)}
+            </div>
+          </div>
+          <div
+            className={`relative z-10 pt-4 mt-4 border-t text-xs font-bold ${
+              summary.netProfit >= 0
+                ? "text-emerald-900 border-emerald-200"
+                : "text-rose-900 border-rose-200"
+            }`}
+          >
+            {summary.gross > 0
+              ? summary.netProfit >= 0
+                ? `De cada R$ 100 vendidos, ${formatCurrency(summary.marginPct)} ficam limpos no caixa da empresa.`
+                : `Prejuízo de ${formatCurrency(Math.abs(summary.marginPct))} a cada R$ 100 vendidos neste período.`
+              : "Aguardando primeiras vendas confirmadas no período para apurar lucro."}
+          </div>
+        </div>
       </div>
 
-      {/* 3. DRE VISUAL DIDÁTICO: RÉGUA PROGRESSIVA DE CACHOEIRA (WATERFALL) */}
-      <div className="bg-white rounded-3xl border border-[#E9D9CD] p-6 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E9D9CD]/70">
+      {/* ================================================================= */}
+      {/* 3. GRÁFICOS VISUAIS DE INTELIGÊNCIA FINANCEIRA                     */}
+      {/*    A) Gráfico de Torres / Colunas: Desempenho e Estrutura         */}
+      {/*    B) Gráfico de Pizza / Rosca Interativo: Origem das Vendas      */}
+      {/* ================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* GRÁFICO DE TORRES / COLUNAS (7 COLUNAS) */}
+        <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col justify-between space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#7A3F51]" />
+                <h3 className="font-display text-lg font-extrabold text-[#39313A]">
+                  Gráfico Comparativo de Desempenho
+                </h3>
+              </div>
+              <p className="text-xs text-[#39313A]/70 mt-0.5">
+                Visualização em torres comparando Faturamento Bruto vs Lucro Líquido e a absorção de cada custo.
+              </p>
+            </div>
+
+            <span className="px-3 py-1 rounded-full bg-[#FAF7F8] border border-[#E9D9CD] text-[11px] font-bold text-[#7A3F51] shrink-0">
+              Escala Proporcional
+            </span>
+          </div>
+
+          {/* ÁREA DO GRÁFICO DE BARRAS / TORRES */}
+          <div className="bg-[#FAF7F8]/70 border border-[#E9D9CD]/80 rounded-2xl p-5 pt-8 min-h-[260px] flex flex-col justify-end">
+            <div className="grid grid-cols-6 items-end gap-2 sm:gap-3 h-48 border-b-2 border-[#E9D9CD] pb-2">
+              {/* TORRE 1: FATURAMENTO BRUTO */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-[#7A3F51] mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.gross > 0 ? formatCurrency(summary.gross) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(grossHeightPct, 6)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-[#5a2c3b] to-[#7A3F51] transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-[#7A3F51] truncate max-w-[64px]">
+                    Faturamento
+                  </span>
+                  <span className="block text-[10px] font-bold text-[#7A3F51]/70">
+                    100%
+                  </span>
+                </div>
+              </div>
+
+              {/* TORRE 2: CMV (PRODUTOS) */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-rose-600 mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.totalCmv > 0 ? formatCurrency(summary.totalCmv) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(cmvHeightPct, summary.totalCmv > 0 ? 6 : 2)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-rose-500 to-rose-400 transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-rose-700 truncate max-w-[64px]">
+                    Produtos
+                  </span>
+                  <span className="block text-[10px] font-bold text-rose-600/80">
+                    {summary.cmvPct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+              </div>
+
+              {/* TORRE 3: FRETE PAGO PELA LOJA */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-orange-600 mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.totalShippingCost > 0 ? formatCurrency(summary.totalShippingCost) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(shippingHeightPct, summary.totalShippingCost > 0 ? 6 : 2)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-orange-500 to-orange-400 transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-orange-700 truncate max-w-[64px]">
+                    Frete Loja
+                  </span>
+                  <span className="block text-[10px] font-bold text-orange-600/80">
+                    {summary.shippingPct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+              </div>
+
+              {/* TORRE 4: TAXAS DE CANAIS */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-amber-600 mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.totalFees > 0 ? formatCurrency(summary.totalFees) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(feesHeightPct, summary.totalFees > 0 ? 6 : 2)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-amber-500 to-amber-400 transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-amber-800 truncate max-w-[64px]">
+                    Taxas
+                  </span>
+                  <span className="block text-[10px] font-bold text-amber-600/80">
+                    {summary.feesPct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+              </div>
+
+              {/* TORRE 5: GASTOS FIXOS */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-[#9C5B6F] mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.periodOpex > 0 ? formatCurrency(summary.periodOpex) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(opexHeightPct, summary.periodOpex > 0 ? 6 : 2)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-[#9C5B6F] to-[#C69A76] transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-[#9C5B6F] truncate max-w-[64px]">
+                    Fixos
+                  </span>
+                  <span className="block text-[10px] font-bold text-[#9C5B6F]/80">
+                    {summary.opexPct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+              </div>
+
+              {/* TORRE 6: LUCRO LÍQUIDO REAL */}
+              <div className="flex flex-col items-center h-full justify-end group">
+                <div className="text-[10px] sm:text-[11px] font-extrabold text-emerald-700 mb-1.5 opacity-90 group-hover:scale-105 transition-transform text-center whitespace-nowrap">
+                  {summary.netProfit > 0 ? formatCurrency(summary.netProfit) : "R$ 0,00"}
+                </div>
+                <div className="w-full max-w-[52px] bg-gray-200/50 rounded-t-xl h-full flex items-end">
+                  <div
+                    style={{ height: `${Math.max(netHeightPct, summary.netProfit > 0 ? 6 : 2)}%` }}
+                    className="w-full rounded-t-xl bg-gradient-to-t from-emerald-600 to-emerald-400 transition-all duration-700 shadow-sm"
+                  />
+                </div>
+                <div className="text-center mt-2.5">
+                  <span className="block text-[10px] sm:text-[11px] font-extrabold text-emerald-800 truncate max-w-[64px]">
+                    Lucro Real
+                  </span>
+                  <span className="block text-[10px] font-bold text-emerald-600/90">
+                    {summary.marginPct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LEGENDA HORIZONTAL DA ESTRUTURA DE RESULTADO */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-xs">
+            <div className="p-2.5 rounded-xl bg-[#FAF0F4] border border-[#E9D9CD]/70 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-[#7A3F51] shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-gray-500 uppercase block">Faturamento</span>
+                <span className="font-extrabold text-[#7A3F51]">{formatCurrency(summary.gross)}</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/70 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-rose-500 shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-rose-700 uppercase block">Produtos (CMV)</span>
+                <span className="font-extrabold text-rose-700">{formatCurrency(summary.totalCmv)}</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-orange-50 border border-orange-200/70 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-orange-500 shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-orange-800 uppercase block">Frete Loja</span>
+                <span className="font-extrabold text-orange-800">{formatCurrency(summary.totalShippingCost)}</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/70 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-amber-500 shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-amber-800 uppercase block">Taxas Canais</span>
+                <span className="font-extrabold text-amber-800">{formatCurrency(summary.totalFees)}</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/70 flex items-center gap-2 col-span-2 sm:col-span-1">
+              <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Lucro Real</span>
+                <span className="font-extrabold text-emerald-800">{formatCurrency(summary.netProfit)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* GRÁFICO DE PIZZA / ROSCA INTERATIVO (5 COLUNAS) */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col justify-between space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <PieChartIcon className="w-4 h-4 text-[#7A3F51]" />
+                <h3 className="font-display text-lg font-extrabold text-[#39313A]">
+                  Origem das Vendas & Canais
+                </h3>
+              </div>
+              <p className="text-xs text-[#39313A]/70 mt-0.5">
+                Clique nos canais para inspecionar faturamento, taxas e lucro individual.
+              </p>
+            </div>
+
+            <span className="px-2.5 py-1 rounded-full bg-[#FAF0F4] border border-[#E9D9CD] text-[10px] font-bold text-[#7A3F51] shrink-0">
+              Interativo
+            </span>
+          </div>
+
+          {/* VISUALIZAÇÃO DO DONUT SVG */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
+            <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+                {/* Círculo de fundo */}
+                <circle
+                  cx="80"
+                  cy="80"
+                  r={donutSlices.radius}
+                  fill="transparent"
+                  stroke="#FAF7F8"
+                  strokeWidth="24"
+                />
+
+                {donutSlices.slices.length > 0 ? (
+                  donutSlices.slices.map((slice) => {
+                    const isSelected = activeSelectedChannel?.code === slice.code;
+                    return (
+                      <circle
+                        key={slice.code}
+                        cx="80"
+                        cy="80"
+                        r={donutSlices.radius}
+                        fill="transparent"
+                        stroke={slice.color}
+                        strokeWidth={isSelected ? "28" : "24"}
+                        strokeDasharray={slice.strokeDasharray}
+                        strokeDashoffset={slice.strokeDashoffset}
+                        className="cursor-pointer transition-all duration-300 hover:opacity-80"
+                        onClick={() => setSelectedChannelKey(slice.code)}
+                      />
+                    );
+                  })
+                ) : (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r={donutSlices.radius}
+                    fill="transparent"
+                    stroke="#E9D9CD"
+                    strokeWidth="24"
+                    strokeDasharray="6 6"
+                  />
+                )}
+              </svg>
+
+              {/* Informação central do Donut */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                  {donutSlices.slices.length > 0 ? "Faturado" : "Pronto"}
+                </span>
+                <span className="text-sm font-extrabold text-[#7A3F51] leading-tight">
+                  {formatCurrency(summary.gross)}
+                </span>
+                <span className="text-[10px] font-bold text-gray-600 mt-0.5">
+                  {summary.confirmedOrders.length} {summary.confirmedOrders.length === 1 ? "venda" : "vendas"}
+                </span>
+              </div>
+            </div>
+
+            {/* CARD DETALHADO DO CANAL SELECIONADO */}
+            {activeSelectedChannel && (
+              <div className="flex-1 w-full bg-[#FAF7F8] p-4 rounded-2xl border border-[#E9D9CD]/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-white border border-[#E9D9CD] flex items-center justify-center shrink-0">
+                      {renderChannelIcon(activeSelectedChannel.code)}
+                    </div>
+                    <span className="text-xs font-extrabold text-[#39313A] truncate max-w-[130px]">
+                      {activeSelectedChannel.name}
+                    </span>
+                  </div>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-extrabold text-white shrink-0"
+                    style={{ backgroundColor: activeSelectedChannel.color }}
+                  >
+                    {activeSelectedChannel.sharePct.toFixed(1).replace(".", ",")}%
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E9D9CD]/60 text-xs">
+                  <div>
+                    <span className="text-[10px] text-gray-500 block font-medium">Faturamento:</span>
+                    <span className="font-extrabold text-[#7A3F51]">
+                      {formatCurrency(activeSelectedChannel.revenue)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-500 block font-medium">Taxa do Canal:</span>
+                    <span className="font-extrabold text-amber-700">
+                      {activeSelectedChannel.feePct.toFixed(1).replace(".", ",")}% ({formatCurrency(activeSelectedChannel.fees)})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-500 block font-medium">Lucro do Canal:</span>
+                    <span
+                      className={`font-extrabold ${
+                        activeSelectedChannel.profit >= 0 ? "text-emerald-700" : "text-rose-700"
+                      }`}
+                    >
+                      {formatCurrency(activeSelectedChannel.profit)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-500 block font-medium">Vendas:</span>
+                    <span className="font-extrabold text-[#39313A]">
+                      {activeSelectedChannel.count} {activeSelectedChannel.count === 1 ? "pedido" : "pedidos"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LISTA / SELETOR RÁPIDO DE CANAIS */}
+          <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
+            {channelBreakdown.slice(0, 7).map((ch) => {
+              const isSelected = activeSelectedChannel?.code === ch.code;
+              return (
+                <button
+                  key={ch.code}
+                  type="button"
+                  onClick={() => setSelectedChannelKey(ch.code)}
+                  className={`w-full p-2.5 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+                    isSelected
+                      ? "bg-[#FAF0F4] border-[#7A3F51] shadow-xs"
+                      : "bg-[#FAF7F8] border-[#E9D9CD]/70 hover:bg-[#F5DDE5]/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: ch.color }}
+                    />
+                    <span className="text-xs font-bold text-[#39313A] truncate">
+                      {ch.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-extrabold text-[#7A3F51]">
+                      {formatCurrency(ch.revenue)}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-500">
+                      {ch.count} ped.
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* 4. EVOLUÇÃO HISTÓRICA DOS ÚLTIMOS 12 MESES (BARRAS + TABELA)      */}
+      {/* ================================================================= */}
+      <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-[#39313A] flex items-center gap-2">
-              <Layers className="w-5 h-5 text-[#9C5B6F]" />
-              <span>Caminho do Dinheiro: Da Receita Bruta ao Lucro Líquido Real</span>
-            </h3>
-            <p className="text-xs text-[#39313A]/70">
-              Demonstrativo visual de onde cada centavo faturado é alocado nos custos e quanto sobra líquido no caixa.
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#7A3F51]" />
+              <h3 className="font-display text-lg font-extrabold text-[#39313A]">
+                Evolução Histórica dos Últimos 12 Meses
+              </h3>
+            </div>
+            <p className="text-xs text-[#39313A]/70 mt-0.5">
+              Acompanhamento mensal comparando Faturamento Bruto vs Lucro Líquido Real para tomada de decisão estratégica.
             </p>
           </div>
-          <span className="text-xs font-bold text-gray-500 bg-[#FAF7F8] px-3 py-1 rounded-full border border-[#E9D9CD]">
-            {periodData.label}
+
+          <div className="flex items-center gap-4 text-xs font-bold">
+            <span className="inline-flex items-center gap-1.5 text-[#7A3F51]">
+              <span className="w-3 h-3 rounded-sm bg-[#7A3F51]" />
+              Faturamento
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-emerald-700">
+              <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+              Lucro Líquido
+            </span>
+          </div>
+        </div>
+
+        {/* GRÁFICO HISTÓRICO DE BARRAS VERTICAIS MÊS A MÊS */}
+        <div className="bg-[#FAF7F8]/80 p-5 rounded-2xl border border-[#E9D9CD]/80">
+          <div className="grid grid-cols-12 gap-1.5 sm:gap-3 items-end h-48 border-b-2 border-[#E9D9CD] pb-2">
+            {monthlyHistory.months.map((m, idx) => {
+              const grossBarPct =
+                monthlyHistory.maxMonthGross > 0
+                  ? (m.gross / monthlyHistory.maxMonthGross) * 100
+                  : 0;
+              const netBarPct =
+                monthlyHistory.maxMonthGross > 0 && m.netProfit > 0
+                  ? (m.netProfit / monthlyHistory.maxMonthGross) * 100
+                  : 0;
+              const isHovered = hoveredMonthIndex === idx;
+
+              return (
+                <div
+                  key={m.key}
+                  onMouseEnter={() => setHoveredMonthIndex(idx)}
+                  onMouseLeave={() => setHoveredMonthIndex(null)}
+                  className="flex flex-col items-center h-full justify-end group cursor-pointer relative"
+                >
+                  {/* Tooltip ao passar o mouse */}
+                  {isHovered && (
+                    <div className="absolute -top-20 z-30 p-2.5 rounded-xl bg-[#39313A] text-white text-[11px] font-medium shadow-xl pointer-events-none whitespace-nowrap">
+                      <div className="font-extrabold text-[#C69A76]">{m.label}</div>
+                      <div>Faturado: {formatCurrency(m.gross)}</div>
+                      <div className="text-emerald-400">Lucro: {formatCurrency(m.netProfit)} ({m.marginPct.toFixed(1).replace(".", ",")}%)</div>
+                      <div className="text-gray-300">{m.ordersCount} pedidos</div>
+                    </div>
+                  )}
+
+                  {/* Barras Lado a Lado (Faturamento vs Lucro) */}
+                  <div className="w-full flex items-end justify-center gap-0.5 sm:gap-1 h-full">
+                    {/* Barra Faturamento */}
+                    <div
+                      style={{ height: `${Math.max(grossBarPct, m.gross > 0 ? 8 : 2)}%` }}
+                      className={`w-1/2 rounded-t-md transition-all duration-300 ${
+                        m.gross > 0
+                          ? "bg-[#7A3F51] group-hover:bg-[#9C5B6F]"
+                          : "bg-gray-300/40"
+                      }`}
+                    />
+                    {/* Barra Lucro */}
+                    <div
+                      style={{ height: `${Math.max(netBarPct, m.netProfit > 0 ? 8 : 2)}%` }}
+                      className={`w-1/2 rounded-t-md transition-all duration-300 ${
+                        m.netProfit > 0
+                          ? "bg-emerald-500 group-hover:bg-emerald-400"
+                          : "bg-gray-300/40"
+                      }`}
+                    />
+                  </div>
+
+                  <span className="text-[10px] sm:text-[11px] font-bold text-[#39313A] mt-2 block truncate">
+                    {m.label.split("/")[0]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-600 gap-2 font-medium">
+            <span>
+              Total acumulado em 12 meses:{" "}
+              <strong className="text-[#7A3F51] font-extrabold">
+                {formatCurrency(monthlyHistory.total12MonthsGross)}
+              </strong>{" "}
+              ({monthlyHistory.total12MonthsOrders} pedidos)
+            </span>
+            <span>
+              Lucro líquido acumulado:{" "}
+              <strong className="text-emerald-700 font-extrabold">
+                {formatCurrency(monthlyHistory.total12MonthsNet)}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* 5. DRE GERENCIAL ESTRUTURADO (PASSO A PASSO CONTÁBIL)             */}
+      {/* ================================================================= */}
+      <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#7A3F51]" />
+              <h3 className="font-display text-lg font-extrabold text-[#39313A]">
+                Demonstrativo do Resultado do Exercício (DRE Gerencial)
+              </h3>
+            </div>
+            <p className="text-xs text-[#39313A]/70 mt-0.5">
+              Cálculo auditável deduzindo CMV, taxas de canais e despesas fixas para apuração do lucro líquido real.
+            </p>
+          </div>
+
+          <span className="px-3 py-1 rounded-full bg-[#FAF0F4] border border-[#E9D9CD] text-[11px] font-bold text-[#7A3F51] shrink-0 self-start sm:self-auto">
+            Padrão Contábil B2C / E-commerce
           </span>
         </div>
 
-        {/* 5 Passos do Waterfall em Grid Horizontal */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative">
-          
-          {/* Passo 1: Receita Bruta */}
-          <div className="bg-[#FAF7F8] p-3.5 rounded-2xl border border-[#E9D9CD] flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Passo 1</span>
-              <span className="text-xs font-bold text-[#7A3F51] block mt-0.5">Receita Bruta</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-lg font-extrabold text-[#7A3F51]">{formatCurrency(periodData.gross)}</span>
-              <span className="text-[10px] text-gray-500 block font-semibold">100% da Entrada</span>
-            </div>
-          </div>
-
-          {/* Passo 2: Comissões */}
-          <div className="bg-rose-50/40 p-3.5 rounded-2xl border border-rose-200 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">Passo 2</span>
-              <span className="text-xs font-bold text-rose-800 block mt-0.5">(-) Comissões Canais</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-lg font-extrabold text-rose-600">-{formatCurrency(periodData.fees)}</span>
-              <span className="text-[10px] text-rose-500 block font-semibold">{feesPct}% consumido</span>
-            </div>
-          </div>
-
-          {/* Passo 3: CMV */}
-          <div className="bg-rose-50/40 p-3.5 rounded-2xl border border-rose-200 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">Passo 3</span>
-              <span className="text-xs font-bold text-rose-800 block mt-0.5">(-) Custo Mercadorias</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-lg font-extrabold text-rose-600">-{formatCurrency(periodData.cmv)}</span>
-              <span className="text-[10px] text-rose-500 block font-semibold">{cmvPct}% em insumos/make</span>
-            </div>
-          </div>
-
-          {/* Passo 4: Despesas Fixas */}
-          <div className="bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">Passo 4</span>
-              <span className="text-xs font-bold text-amber-900 block mt-0.5">(-) Despesas Fixas</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-lg font-extrabold text-amber-700">-{formatCurrency(periodData.opex)}</span>
-              <span className="text-[10px] text-amber-600 block font-semibold">{opexPct}% operacional</span>
-            </div>
-          </div>
-
-          {/* Passo 5: Lucro Líquido Real */}
-          <div className="bg-emerald-50/60 p-3.5 rounded-2xl border-2 border-emerald-300 flex flex-col justify-between shadow-sm">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">Passo 5</span>
-              <span className="text-xs font-bold text-emerald-900 block mt-0.5">(=) Lucro Real em Caixa</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-lg font-extrabold text-emerald-800">{formatCurrency(periodData.net)}</span>
-              <span className="text-[10px] text-emerald-700 block font-bold">{periodData.margin}% de margem</span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Barra Proporcional Segmentada */}
-        <div className="space-y-1.5 pt-2">
-          <div className="flex items-center justify-between text-[11px] font-bold text-gray-500">
-            <span>Distribuição Proporcional de Cada R$ 1,00 Faturado:</span>
-            <span>Retenção Líquida: {periodData.margin}%</span>
-          </div>
-          <div className="h-4 rounded-full bg-gray-100 overflow-hidden flex border border-[#E9D9CD]">
-            <div 
-              style={{ width: `${feesPct}%` }} 
-              className="bg-rose-400 hover:bg-rose-500 transition-all cursor-pointer"
-              title={`Comissões Marketplaces: ${feesPct}%`}
-            />
-            <div 
-              style={{ width: `${cmvPct}%` }} 
-              className="bg-rose-600 hover:bg-rose-700 transition-all cursor-pointer"
-              title={`CMV dos Cosméticos: ${cmvPct}%`}
-            />
-            <div 
-              style={{ width: `${opexPct}%` }} 
-              className="bg-amber-400 hover:bg-amber-500 transition-all cursor-pointer"
-              title={`Despesas Fixas e Fretes: ${opexPct}%`}
-            />
-            <div 
-              style={{ width: `${netPct}%` }} 
-              className="bg-emerald-500 hover:bg-emerald-600 transition-all cursor-pointer"
-              title={`Lucro Líquido Real: ${netPct}%`}
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-[10px] text-gray-500 pt-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
-              <span>Comissões ({feesPct}%)</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-              <span>CMV Cosméticos ({cmvPct}%)</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span>Despesas Fixas ({opexPct}%)</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <strong className="text-emerald-800">Lucro Líquido Retido ({netPct}%)</strong>
-            </span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* 4. SISTEMA DE ABAS INTERNAS (Substituindo a rolagem infinita) */}
-      <div className="space-y-4">
-        
-        {/* Barra de Abas */}
-        <div className="bg-white p-1.5 rounded-2xl border border-[#E9D9CD] shadow-sm flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === "overview"
-                ? "bg-[#7A3F51] text-white shadow-md"
-                : "text-gray-600 hover:text-[#7A3F51] hover:bg-[#FAF0F4]"
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Visão Geral & Mix de Canais</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("dre")}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === "dre"
-                ? "bg-[#7A3F51] text-white shadow-md"
-                : "text-gray-600 hover:text-[#7A3F51] hover:bg-[#FAF0F4]"
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>DRE Contábil Detalhado</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === "history"
-                ? "bg-[#7A3F51] text-white shadow-md"
-                : "text-gray-600 hover:text-[#7A3F51] hover:bg-[#FAF0F4]"
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>Histórico de 12 Meses & Transações</span>
-          </button>
-        </div>
-
-        {/* CONTEÚDO DA ABA A: VISÃO GERAL & MIX DE CANAIS */}
-        {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-300">
-            
-            {/* Lado Esquerdo: Comparativo Mensal em Barras (col-span-5) */}
-            <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col justify-between">
-              <div>
-                <h4 className="font-serif text-base font-bold text-[#39313A] flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#C69A76]" />
-                  <span>Evolução do Faturamento (Últimos Meses)</span>
-                </h4>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Comparação direta do faturamento bruto mês a mês.
-                </p>
+        <div className="space-y-3">
+          {/* 1. RECEITA BRUTA DE VENDAS */}
+          <div className="p-4 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-[#FAF0F4] text-[#7A3F51] shrink-0 mt-0.5">
+                <DollarSign className="w-4 h-4" />
               </div>
-
-              <div className="pt-6 pb-2">
-                <div className="flex items-end justify-between gap-2 h-44 border-b border-[#E9D9CD] pb-2">
-                  {MONTHLY_12_MONTHS_HISTORY.slice(-6).map((m, idx) => {
-                    const heightPercent = Math.min(100, Math.round((m.gross / 50000) * 100));
-                    const isLatest = idx === 5;
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                        <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                          {formatCurrency(m.gross)}
-                        </span>
-                        <div className="w-full bg-[#FAF0F4] rounded-t-xl overflow-hidden flex items-end h-32">
-                          <div 
-                            style={{ height: `${heightPercent}%` }}
-                            className={`w-full transition-all duration-500 rounded-t-xl ${
-                              isLatest ? "bg-gradient-to-t from-[#7A3F51] to-[#9C5B6F]" : "bg-[#C69A76]/70 group-hover:bg-[#C69A76]"
-                            }`}
-                          />
-                        </div>
-                        <span className={`text-[10px] font-bold ${isLatest ? "text-[#7A3F51]" : "text-gray-400"}`}>
-                          {m.month.split(" ")[0]}
-                        </span>
-                      </div>
-                    );
-                  })}
+              <div>
+                <div className="text-sm font-bold text-[#39313A]">
+                  (+) Faturamento Bruto de Vendas
+                </div>
+                <div className="text-xs text-[#39313A]/70">
+                  Total de pedidos confirmados e pagos pelos clientes no período.
                 </div>
               </div>
-
-              <div className="bg-[#FAF7F8] p-3 rounded-2xl border border-[#E9D9CD] flex items-center justify-between text-xs">
-                <span className="font-semibold text-gray-600">Média Mensal Faturada:</span>
-                <span className="font-extrabold text-[#7A3F51]">{formatCurrency(41250)}</span>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-base font-extrabold text-[#7A3F51]">
+                + {formatCurrency(summary.gross)}
+              </div>
+              <div className="text-[11px] font-semibold text-gray-500">
+                100,0%
               </div>
             </div>
-
-            {/* Lado Direito: Mix de Origens com Barras Horizontais e Rentabilidade (col-span-7) */}
-            <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-6">
-              <div>
-                <h4 className="font-serif text-base font-bold text-[#39313A] flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-[#9C5B6F]" />
-                  <span>Mix de Origens de Venda & Participação</span>
-                </h4>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Distribuição percentual do faturamento entre a Loja Própria, Redes Sociais e Marketplaces.
-                </p>
-              </div>
-
-              {/* Barras de Progresso Horizontais Elegantes */}
-              <div className="space-y-3.5">
-                {channelMix.map((c) => (
-                  <div key={c.code} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 font-bold text-[#39313A]">
-                        {renderChannelIcon(c.icon)}
-                        <span>{c.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-[#7A3F51]">{formatCurrency(c.revenue)}</span>
-                        <span className="text-xs font-extrabold text-gray-500 w-12 text-right">{c.share}%</span>
-                      </div>
-                    </div>
-                    <div className="h-2 rounded-full bg-[#FAF7F8] overflow-hidden border border-[#E9D9CD]/50">
-                      <div 
-                        style={{ width: `${c.shareNum}%`, backgroundColor: c.color }}
-                        className="h-full rounded-full transition-all duration-500"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Tabela Compacta de Rentabilidade Estratégica */}
-              <div className="pt-2 border-t border-[#E9D9CD]/60">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-2">
-                  Rentabilidade Estimada por Canal
-                </span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-gray-400 text-[10px] uppercase border-b border-[#E9D9CD]/50">
-                        <th className="pb-2">Canal</th>
-                        <th className="pb-2">Taxa Comissão</th>
-                        <th className="pb-2 text-right">Margem Líquida Est.</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E9D9CD]/30">
-                      <tr>
-                        <td className="py-2 font-bold text-[#7A3F51]">Loja Virtual Bia Makes (Site)</td>
-                        <td className="py-2 text-emerald-700 font-bold">0.99% (PIX)</td>
-                        <td className="py-2 text-right font-extrabold text-emerald-700">54.2% (Mais Lucrativo)</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-[#39313A]">Instagram Shopping / Direct</td>
-                        <td className="py-2 text-emerald-700 font-bold">0.00% (Venda Direta)</td>
-                        <td className="py-2 text-right font-bold text-emerald-700">52.8%</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-[#39313A]">Mercado Livre Full</td>
-                        <td className="py-2 text-gray-600">16.00%</td>
-                        <td className="py-2 text-right font-bold text-[#39313A]">32.5%</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-[#39313A]">Shopee Oficial</td>
-                        <td className="py-2 text-gray-600">14.00%</td>
-                        <td className="py-2 text-right font-bold text-[#39313A]">34.8%</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
-
           </div>
-        )}
 
-        {/* CONTEÚDO DA ABA B: DRE CONTÁBIL DETALHADO */}
-        {activeTab === "dre" && (
-          <div className="bg-white rounded-3xl border border-[#E9D9CD] p-6 sm:p-7 shadow-sm space-y-5 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E9D9CD]">
-              <div>
-                <h4 className="font-serif text-lg font-bold text-[#39313A] flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-[#C69A76]" />
-                  <span>Demonstrativo do Resultado do Exercício (DRE Oficial)</span>
-                </h4>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Estrutura contábil oficial com detalhamento de deduções e apuração do Lucro Real.
-                </p>
+          {/* 2. CUSTO DAS MERCADORIAS VENDIDAS (CMV) */}
+          <div className="p-4 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-100 text-rose-600 shrink-0 mt-0.5">
+                <Package className="w-4 h-4" />
               </div>
-              <span className="text-xs bg-[#FAF0F4] text-[#7A3F51] px-3 py-1 rounded-full font-bold">
-                {periodData.label}
-              </span>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              
-              {periodData.refundedAmount > 0 && (
-                <div className="flex justify-between py-2 px-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 font-bold items-center">
-                  <span>(-) Estornos, Devoluções & Cancelamentos ({periodData.refundedOrdersCount} pedidos)</span>
-                  <span className="line-through decoration-2 decoration-rose-600">
-                    {formatCurrency(periodData.refundedAmount)}
-                  </span>
+              <div>
+                <div className="text-sm font-bold text-[#39313A]">
+                  (-) Custo de Mercadorias Vendidas (CMV)
                 </div>
+                <div className="text-xs text-[#39313A]/70">
+                  Valor pago aos fornecedores e fabricantes pelos produtos que saíram do estoque.
+                </div>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-base font-extrabold text-rose-600">
+                - {formatCurrency(summary.totalCmv)}
+              </div>
+              <div className="text-[11px] font-semibold text-rose-600">
+                {summary.cmvPct.toFixed(1).replace(".", ",")}%
+              </div>
+            </div>
+          </div>
+
+          {/* 3. TAXAS DE MARKETPLACES E CANAIS */}
+          <div className="p-4 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-[#39313A]">
+                  (-) Comissões & Taxas dos Canais de Venda
+                </div>
+                <div className="text-xs text-[#39313A]/70">
+                  Comissões de Mercado Livre, Shopee, intermediadores e gateways de pagamento.
+                </div>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-base font-extrabold text-amber-700">
+                - {formatCurrency(summary.totalFees)}
+              </div>
+              <div className="text-[11px] font-semibold text-amber-700">
+                {summary.feesPct.toFixed(1).replace(".", ",")}%
+              </div>
+            </div>
+          </div>
+
+          {/* 3.5. FRETE DAS ENCOMENDAS (PAGO PELA LOJA ÀS TRANSPORTADORAS) */}
+          <div className="p-4 rounded-2xl bg-orange-50/70 border-2 border-orange-200 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-orange-100 text-orange-700 shrink-0 mt-0.5">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-[#39313A]">
+                  (-) Frete das Encomendas (Pago pela Loja às Transportadoras)
+                </div>
+                <div className="text-xs text-[#39313A]/80 mt-0.5">
+                  Total pago pela Bia Makes para enviar {summary.confirmedOrders.length}{" "}
+                  {summary.confirmedOrders.length === 1 ? "encomenda" : "encomendas"} (Média de{" "}
+                  <strong>{formatCurrency(summary.averageShippingPerOrder)}</strong> de frete por encomenda ·{" "}
+                  <strong>{summary.freeShippingSubsidizedCount}</strong>{" "}
+                  {summary.freeShippingSubsidizedCount === 1
+                    ? "pedido com Frete Grátis bancado pela loja"
+                    : "pedidos com Frete Grátis bancado pela loja"}
+                  ).
+                </div>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-base font-extrabold text-orange-700">
+                - {formatCurrency(summary.totalShippingCost)}
+              </div>
+              <div className="text-[11px] font-semibold text-orange-700">
+                {summary.shippingPct.toFixed(1).replace(".", ",")}%
+              </div>
+            </div>
+          </div>
+
+          {/* 4. MARGEM DE CONTRIBUIÇÃO / LUCRO BRUTO */}
+          <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between gap-4 font-semibold text-xs text-[#39313A]">
+            <span>(=) Margem de Contribuição / Lucro Bruto Operacional</span>
+            <span className="font-extrabold text-[#7A3F51]">
+              {formatCurrency(
+                summary.gross - summary.totalCmv - summary.totalFees - summary.totalShippingCost
               )}
+            </span>
+          </div>
 
-              <div className="flex justify-between py-2.5 px-3 border-b border-gray-100 font-bold text-sm text-[#39313A]">
-                <span>(+) RECEITA OPERACIONAL BRUTA</span>
-                <span className="text-base text-[#7A3F51]">{formatCurrency(periodData.gross)}</span>
+          {/* 5. GASTOS FIXOS OPERACIONAIS (EDITÁVEL INLINE) */}
+          <div className="p-4 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80 space-y-2.5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-[#E9D9CD] text-[#7A3F51] shrink-0 mt-0.5">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-[#39313A] flex flex-wrap items-center gap-2">
+                    <span>(-) Despesas Fixas da Loja (Embalagens, Internet, Aluguel, Outros)</span>
+                    {!isEditingOpex && (
+                      <button
+                        type="button"
+                        onClick={handleOpenEditOpex}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white border border-[#E9D9CD] text-[#7A3F51] text-[11px] font-bold hover:bg-[#FAF0F4] transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Definir valor mensal</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-xs text-[#39313A]/70">
+                    Base mensal: {formatCurrency(monthlyOpex)}
+                    {selectedPeriod === "today" && monthlyOpex > 0 && " (dividido por 30)"}
+                    {selectedPeriod === "7days" && monthlyOpex > 0 && " (proporcional a 7 dias)"}
+                    {selectedPeriod === "12months" && monthlyOpex > 0 && " (multiplicado por 12)"}
+                  </div>
+                </div>
               </div>
-
-              <div className="flex justify-between py-2 px-3 text-rose-700 pl-6 border-b border-gray-50">
-                <span>(-) Comissões e Taxas de Intermediação de Marketplaces</span>
-                <span className="font-bold">-{formatCurrency(periodData.fees)}</span>
+              <div className="text-right shrink-0">
+                <div className="text-base font-extrabold text-[#9C5B6F]">
+                  - {formatCurrency(summary.periodOpex)}
+                </div>
+                <div className="text-[11px] font-semibold text-[#9C5B6F]">
+                  {summary.opexPct.toFixed(1).replace(".", ",")}%
+                </div>
               </div>
+            </div>
 
-              <div className="flex justify-between py-2 px-3 text-rose-700 pl-6 border-b border-gray-50">
-                <span>(-) Custo das Mercadorias Vendidas (CMV Cosméticos)</span>
-                <span className="font-bold">-{formatCurrency(periodData.cmv)}</span>
+            {isEditingOpex && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E9D9CD]/70">
+                <span className="text-xs font-bold text-[#7A3F51]">
+                  Gasto fixo mensal da Bia Makes (R$):
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 450,00"
+                  value={opexDraft}
+                  onChange={(e) => setOpexDraft(e.target.value)}
+                  className="w-36 px-3 py-1.5 text-xs bg-white rounded-xl border border-[#9C5B6F] focus:outline-none font-bold text-[#39313A]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveOpex}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Salvar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingOpex(false)}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-[#E9D9CD] text-gray-600 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancelar</span>
+                </button>
               </div>
+            )}
+          </div>
 
-              <div className="flex justify-between py-2.5 px-3 border-b border-gray-100 font-bold text-sm text-[#7A3F51] bg-[#FAF7F8] rounded-xl">
-                <span>(=) LUCRO OPERACIONAL BRUTO</span>
-                <span>{formatCurrency(periodData.gross - periodData.fees - periodData.cmv)}</span>
+          {/* 6. LUCRO LÍQUIDO REAL NO CAIXA */}
+          <div
+            className={`p-4 rounded-2xl border-2 flex items-center justify-between gap-4 ${
+              summary.netProfit >= 0
+                ? "bg-emerald-50/70 border-emerald-400"
+                : "bg-rose-50/80 border-rose-400"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                  summary.netProfit >= 0
+                    ? "bg-emerald-500 text-white"
+                    : "bg-rose-500 text-white"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
               </div>
-
-              <div className="flex justify-between py-2 px-3 text-rose-700 pl-6 border-b border-gray-50">
-                <span>(-) Despesas Operacionais Fixas (Embalagens, Fretes e Plataforma)</span>
-                <span className="font-bold">-{formatCurrency(periodData.opex)}</span>
+              <div>
+                <div
+                  className={`text-base font-extrabold ${
+                    summary.netProfit >= 0 ? "text-emerald-900" : "text-rose-900"
+                  }`}
+                >
+                  (=) Lucro Líquido Real Final (No Bolso)
+                </div>
+                <div
+                  className={`text-xs ${
+                    summary.netProfit >= 0 ? "text-emerald-800" : "text-rose-800"
+                  }`}
+                >
+                  Resultado real final disponível após cobrir produtos, intermediadores e custos da loja.
+                </div>
               </div>
-
-              <div className={`flex justify-between py-3.5 border-t-2 font-bold text-base px-4 rounded-2xl mt-4 ${
-                periodData.net >= 0 
-                  ? "border-[#7A3F51] text-emerald-800 bg-emerald-50/70" 
-                  : "border-rose-600 text-rose-800 bg-rose-50/80"
-              }`}>
-                <span>{periodData.net >= 0 ? "(=) RESULTADO LÍQUIDO DO EXERCÍCIO (LUCRO REAL)" : "(=) RESULTADO LÍQUIDO DO EXERCÍCIO (PREJUÍZO REAL)"}</span>
-                <span className="text-lg">{formatCurrency(periodData.net)}</span>
+            </div>
+            <div className="text-right shrink-0">
+              <div
+                className={`text-xl font-extrabold ${
+                  summary.netProfit >= 0 ? "text-emerald-700" : "text-rose-700"
+                }`}
+              >
+                ={" "}
+                {summary.netProfit < 0
+                  ? `- ${formatCurrency(Math.abs(summary.netProfit))}`
+                  : formatCurrency(summary.netProfit)}
               </div>
-
+              <div
+                className={`text-xs font-bold ${
+                  summary.netProfit >= 0 ? "text-emerald-800" : "text-rose-800"
+                }`}
+              >
+                Margem Líquida: {summary.marginPct.toFixed(1).replace(".", ",")}%
+              </div>
             </div>
           </div>
-        )}
-
-        {/* CONTEÚDO DA ABA C: HISTÓRICO DE 12 MESES & TRANSAÇÕES */}
-        {activeTab === "history" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            
-            {/* Tabela dos 12 Meses */}
-            <div className="bg-white rounded-3xl border border-[#E9D9CD] p-6 shadow-sm space-y-4">
-              <h4 className="font-serif text-base font-bold text-[#39313A] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#C69A76]" />
-                <span>Histórico Financeiro Consolidado (12 Meses)</span>
-              </h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#FAF7F8] border-b border-[#E9D9CD] text-gray-500 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Mês / Ano</th>
-                      <th className="py-2.5 px-3 text-right">Faturamento Bruto</th>
-                      <th className="py-2.5 px-3 text-right">Lucro Líquido</th>
-                      <th className="py-2.5 px-3 text-center">Pedidos</th>
-                      <th className="py-2.5 px-3 text-right">Margem Líquida</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9D9CD]/30">
-                    {MONTHLY_12_MONTHS_HISTORY.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-[#FAF7F8]/60 transition-colors">
-                        <td className="py-2.5 px-3 font-bold text-[#39313A]">{row.month}</td>
-                        <td className="py-2.5 px-3 text-right font-semibold text-[#7A3F51]">{formatCurrency(row.gross)}</td>
-                        <td className="py-2.5 px-3 text-right font-extrabold text-emerald-700">{formatCurrency(row.net)}</td>
-                        <td className="py-2.5 px-3 text-center text-gray-600">{row.ordersCount}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-gray-700">{row.margin}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Últimas Transações Faturadas */}
-            <div className="bg-white rounded-3xl border border-[#E9D9CD] p-6 shadow-sm space-y-4">
-              <h4 className="font-serif text-base font-bold text-[#39313A] flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-[#9C5B6F]" />
-                <span>Últimas Transações Faturadas</span>
-              </h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#FAF7F8] border-b border-[#E9D9CD] text-gray-500 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Pedido</th>
-                      <th className="py-2.5 px-3">Canal</th>
-                      <th className="py-2.5 px-3">Cliente</th>
-                      <th className="py-2.5 px-3">Data</th>
-                      <th className="py-2.5 px-3">Forma Pagto</th>
-                      <th className="py-2.5 px-3 text-right">Valor Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9D9CD]/30">
-                    {orders.slice(0, 6).map((ord) => (
-                      <tr key={ord.id} className="hover:bg-[#FAF7F8]/60 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-bold text-[#7A3F51]">{ord.orderNumber}</td>
-                        <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white border border-[#E9D9CD] text-[#7A3F51]">
-                            {ord.channel}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-medium text-[#39313A]">{ord.customerName}</td>
-                        <td className="py-2.5 px-3 text-gray-500 text-[11px]">{formatDate(ord.createdAt)}</td>
-                        <td className="py-2.5 px-3 text-gray-600">{ord.paymentMethod}</td>
-                        <td className="py-2.5 px-3 text-right font-extrabold text-emerald-700">{formatCurrency(ord.totalAmount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
+        </div>
       </div>
 
+      {/* ================================================================= */}
+      {/* 6. EXTRATO RECONCILIADO DE PEDIDOS (AUDITORIA PEDIDO A PEDIDO)     */}
+      {/* ================================================================= */}
+      <div className="bg-white p-6 rounded-3xl border border-[#E9D9CD] shadow-sm space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-display text-lg font-extrabold text-[#39313A]">
+              Extrato de Pedidos do Período (Composição Detalhada)
+            </h3>
+            <p className="text-xs text-[#39313A]/70 mt-0.5">
+              Auditoria pedido por pedido: valor faturado, custos e lucro apurado no caixa.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: "all" as const, label: `Todos (${summary.periodOrders.length})` },
+              {
+                id: "confirmed" as const,
+                label: `Confirmados (${summary.confirmedOrders.length})`,
+              },
+              {
+                id: "pending" as const,
+                label: `Pendentes (${summary.pendingOrders.length})`,
+              },
+              {
+                id: "refunded" as const,
+                label: `Cancelados/Devolvidos (${summary.refundedOrders.length})`,
+              },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setExtractFilter(f.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                  extractFilter === f.id
+                    ? "bg-[#7A3F51] text-white border-[#7A3F51] shadow-xs"
+                    : "bg-[#FAF7F8] text-[#39313A] border-[#E9D9CD] hover:bg-[#FAF0F4]"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-[#E9D9CD] text-[11px] font-extrabold uppercase tracking-wider text-[#7A3F51]/80 bg-[#FAF7F8]">
+                <th className="py-3 px-4 rounded-tl-2xl">Pedido & Data</th>
+                <th className="py-3 px-4">Cliente & Canal</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Valor Pago pela Cliente</th>
+                <th className="py-3 px-4 text-right">Custo Produtos + Taxa Canal</th>
+                <th className="py-3 px-4 text-right">Frete Pago pela Loja</th>
+                <th className="py-3 px-4 text-right rounded-tr-2xl">Lucro Limpo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E9D9CD]/60 text-xs">
+              {extractOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-[#39313A]/70">
+                    Nenhum pedido encontrado neste filtro e período.
+                  </td>
+                </tr>
+              ) : (
+                extractOrders.map((order) => {
+                  const b = summary.orderBreakdowns.get(order.id) || {
+                    cmv: 0,
+                    channelFee: 0,
+                    shippingCost: resolveOrderCompanyShippingCost(order),
+                    totalOrderCosts: 0,
+                    orderProfit: 0,
+                  };
+                  const cmvAndFee = roundCurrency(b.cmv + b.channelFee);
+                  const carrierName = order.shippingCarrier || "Correios PAC";
+                  const isFreeShip =
+                    (typeof order.shippingAmount === "number" ? order.shippingAmount : 0) === 0 ||
+                    Boolean(order.isFreeShippingSubsidized);
+                  const isConfirmed = CONFIRMED_STATUSES.includes(order.status);
+                  const isPending = order.status === "PENDENTE";
+                  const isRefunded = REFUNDED_STATUSES.includes(order.status);
+
+                  return (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-[#FAF7F8]/70 transition-colors"
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="font-extrabold text-[#7A3F51]">
+                          #{order.orderNumber}
+                        </div>
+                        <div className="text-[11px] text-[#39313A]/70">
+                          {formatDate(order.createdAt)}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-[#39313A]">
+                          {order.customerName}
+                        </div>
+                        <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-[#FAF0F4] border border-[#E9D9CD] text-[10px] font-bold text-[#7A3F51]">
+                          {getChannelDisplayName(order.channel, channels)}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        {isConfirmed && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>No Caixa ({STATUS_LABELS[order.status]})</span>
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold">
+                            <Clock className="w-3 h-3" />
+                            <span>Aguardando Pagto</span>
+                          </span>
+                        )}
+                        {isRefunded && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold">
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Estornado ({STATUS_LABELS[order.status]})</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td
+                        className={`py-3.5 px-4 text-right font-bold ${
+                          isRefunded
+                            ? "text-gray-400 line-through"
+                            : isPending
+                            ? "text-amber-800"
+                            : "text-[#39313A]"
+                        }`}
+                      >
+                        + {formatCurrency(order.totalAmount)}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right font-semibold text-rose-600/90">
+                        {isRefunded ? (
+                          <span className="text-gray-400 line-through">
+                            - {formatCurrency(cmvAndFee)}
+                          </span>
+                        ) : (
+                          <div>
+                            <span>- {formatCurrency(cmvAndFee)}</span>
+                            <div className="text-[10px] text-gray-500 font-normal">
+                              CMV {formatCurrency(b.cmv)} · Taxa {formatCurrency(b.channelFee)}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right font-semibold text-orange-700">
+                        {isRefunded ? (
+                          <span className="text-gray-400 line-through">
+                            - {formatCurrency(b.shippingCost)}
+                          </span>
+                        ) : (
+                          <div>
+                            <span>- {formatCurrency(b.shippingCost)}</span>
+                            <div className="text-[10px] text-gray-500 font-normal">
+                              {carrierName}
+                              {isFreeShip ? " (Frete Grátis)" : ""}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        {isConfirmed && (
+                          <span
+                            className={`font-extrabold ${
+                              b.orderProfit >= 0 ? "text-emerald-700" : "text-rose-700"
+                            }`}
+                          >
+                            = {formatCurrency(b.orderProfit)}
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="text-amber-700 font-bold text-[11px] inline-flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Aguardando
+                          </span>
+                        )}
+                        {isRefunded && (
+                          <span className="text-gray-400 line-through font-semibold">
+                            = {formatCurrency(b.orderProfit)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+
+            {/* RODAPÉ DO EXTRATO BATENDO COM O DRE */}
+            <tfoot className="border-t-2 border-[#E9D9CD] bg-[#FAF7F8] text-xs">
+              {extractFooterTotals.includesOpex && (
+                <tr className="text-[#39313A]/80 border-b border-[#E9D9CD]/60">
+                  <td colSpan={3} className="py-2.5 px-4 font-semibold">
+                    Despesas Fixas da Loja no período (DRE Gerencial)
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-semibold text-[#39313A]/60">
+                    —
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-bold text-rose-600">
+                    - {formatCurrency(summary.periodOpex)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-semibold text-[#39313A]/60">
+                    —
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-semibold text-rose-600">
+                    - {formatCurrency(summary.periodOpex)}
+                  </td>
+                </tr>
+              )}
+              <tr className="font-extrabold text-[#39313A]">
+                <td colSpan={3} className="py-4 px-4 rounded-bl-2xl">
+                  SOMA TOTAL ({extractFooterTotals.confirmedCount}{" "}
+                  {extractFooterTotals.confirmedCount === 1
+                    ? "pedido confirmado no caixa"
+                    : "pedidos confirmados no caixa"}
+                  )
+                </td>
+                <td className="py-4 px-4 text-right text-[#7A3F51] text-sm">
+                  + {formatCurrency(extractFooterTotals.revenue)}
+                </td>
+                <td className="py-4 px-4 text-right text-rose-600 text-sm">
+                  - {formatCurrency(
+                    extractFooterTotals.includesOpex
+                      ? roundCurrency(extractFooterTotals.cmvAndFees + summary.periodOpex)
+                      : extractFooterTotals.cmvAndFees
+                  )}
+                </td>
+                <td className="py-4 px-4 text-right text-orange-700 text-sm">
+                  - {formatCurrency(extractFooterTotals.shipping)}
+                </td>
+                <td
+                  className={`py-4 px-4 text-right text-sm rounded-br-2xl ${
+                    extractFooterTotals.finalProfit >= 0
+                      ? "text-emerald-700"
+                      : "text-rose-700"
+                  }`}
+                >
+                  ={" "}
+                  {extractFooterTotals.finalProfit < 0
+                    ? `- ${formatCurrency(Math.abs(extractFooterTotals.finalProfit))}`
+                    : formatCurrency(extractFooterTotals.finalProfit)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

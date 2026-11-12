@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useBiaMakes } from "@/context/BiaMakesContext";
-import { Bell, Info, X, Clock, FileText, CheckCircle, ChevronRight, RotateCcw, Sparkles } from "lucide-react";
+import { Bell, X, Clock, FileText, CheckCircle, ChevronRight, RotateCcw } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 export interface SystemChangeLogItem {
@@ -16,6 +16,174 @@ export interface SystemChangeLogItem {
 
 // Histórico de alterações estruturado para exibição do usuário eduardo.nunes
 export const SYSTEM_CHANGE_LOGS: SystemChangeLogItem[] = [
+  {
+    id: "change-2026-11-12-24",
+    timestamp: "2026-11-12T14:15:00-03:00",
+    title: "Frete Zerado em Branco & Cálculo Automático por CEP na Sacola",
+    description: `1. Zero Cobrança com CEP em Branco: No Quick View (Storefront.tsx) e na página /p/[sku], quando o campo de CEP está vazio o quadro de frete não exibe mais valor fixo em reais (ex: R$ 9,90 ou R$ 13,50), mostrando "A calcular pelo CEP" (ou "FRETE GRÁTIS" quando aplicável) com frete = 0 no total.
+2. Cálculo de CEP Direto na Sacola: Incluído bloco de cálculo de CEP e seleção de transportadoras dentro do Drawer da Sacola em Storefront.tsx, com busca automática no 8º dígito e atualização em tempo real do frete e do total.
+3. Sincronização Completa com o Checkout: CheckoutModal.tsx recebe o CEP, localidade e transportadora já escolhidos na Sacola ou página do produto e mantém o frete em R$ 0,00 até o CEP ser informado.`,
+    filesModified: [
+      "src/components/storefront/Storefront.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/app/p/[sku]/page.tsx",
+    ],
+    reversalGuide: "Reverter alterações de frete em branco nos 3 arquivos via git.",
+  },
+  {
+    id: "change-2026-11-12-23",
+    timestamp: "2026-11-12T13:52:00-03:00",
+    title: "Cotação Real de Transportadoras por CEP e Custo de Frete da Empresa no CRM & Financeiro",
+    description: `1. Nova Regra de Frete Grátis (R$ 150,00) & Cotação por Transportadora: Atualizado STORE_CONFIG.freeShippingThreshold para R$ 150,00 e criada calculateCarrierQuotesByCep em src/lib/utils.ts calculando Jadlog Package, Correios PAC, Loggi Express e Correios SEDEX conforme UF/Região e quantidade de itens.
+2. Separação entre Frete Cobrado do Cliente vs. Custo Real Pago pela Loja: No CheckoutModal e /p/[sku], compras acima de R$ 150 (ou itens com frete grátis) mostram GRÁTIS nas modalidades econômicas, enquanto companyShippingCost grava sempre o valor real pago pela Bia Makes à transportadora.
+3. Pedidos e Financeiro 100% Reconciliados: OrdersManager exibe a transportadora, o status de Frete Grátis e o custo pago pela loja na tabela e no Raio-X da Encomenda; BiaMakesContext e FinancialManager descontam obrigatoriamente o frete pago pela empresa do Lucro Líquido Real.`,
+    filesModified: [
+      "src/types/index.ts",
+      "src/lib/data.ts",
+      "src/lib/utils.ts",
+      "src/context/BiaMakesContext.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/crm/OrdersManager.tsx",
+      "src/components/crm/FinancialManager.tsx",
+    ],
+    reversalGuide: "Reverter alterações logísticas e de frete via git nos arquivos listados.",
+  },
+  {
+    id: "change-2026-11-12-22",
+    timestamp: "2026-11-12T13:42:00-03:00",
+    title: "Checkout Inteligente: Validação ANATEL de Celular, CEP Duplo e Estados/Cidades do Brasil",
+    description: `1. Validador de Celular ANATEL (validateBrazilianMobilePhone): Exige 11 dígitos, um dos 67 DDDs válidos do Brasil, 9º dígito obrigatório, 4º dígito diferente de 0 e bloqueia dígitos repetidos ((11) 11111-1111, (11) 99999-9999) ou sequências de teste com feedback imediato no campo WhatsApp.
+2. Busca de CEP Aprimorada: Bloqueio de CEPs com dígitos repetidos (ex: 11111-111), consulta ao ViaCEP com fallback automático para BrasilAPI v2, indicador visual "Buscando endereço...", erro explícito para CEP inexistente e foco automático no campo Número.
+3. Selects Reais de Estado (27 UFs) e Cidades (IBGE): Substituição dos campos abertos de UF e Cidade por selects sincronizados com a API do IBGE (com cache em memória e dicionário offline de fallback para todos os 27 estados).`,
+    filesModified: [
+      "src/lib/utils.ts",
+      "src/components/storefront/CheckoutModal.tsx",
+    ],
+    reversalGuide: "Reverter alterações em src/lib/utils.ts e src/components/storefront/CheckoutModal.tsx via git.",
+  },
+  {
+    id: "change-2026-11-12-21",
+    timestamp: "2026-11-12T13:10:00-03:00",
+    title: "Novo Financeiro do Admin (Compreensão em 3 Segundos)",
+    description: `1. Clareza Absoluta em 4 Blocos: O arquivo FinancialManager.tsx foi reescrito do zero para eliminar jargões contábeis, sub-abas internas e números fictícios fixos (como MONTHLY_12_MONTHS_HISTORY e "+18.4%").
+2. Painel "Conta de Padaria": Mostra de imediato 1. Quanto Entrou − 2. Quanto Custou = 3. Quanto Sobrou no Bolso + faixa de status rápido (Vendas de Hoje, Aguardando Pagamento e Cancelados/Devolvidos), além de banner âmbar com atalho para Pedidos quando há pagamentos pendentes.
+3. Raio-X e Extrato Reconciliado: Barra proporcional de custos com Gasto Fixo Mensal editável (localStorage "biamakes_monthly_opex_v1"), tabela de Vendas por Canal, exportação CSV com BOM UTF-8 (;) e Extrato de Pedidos com rodapé batendo centavo por centavo com o Lucro Real.`,
+    filesModified: ["src/components/crm/FinancialManager.tsx"],
+    reversalGuide: "Restaurar a versão anterior de src/components/crm/FinancialManager.tsx via git checkout.",
+  },
+  {
+    id: "change-2026-11-12-20",
+    timestamp: "2026-11-12T13:07:00-03:00",
+    title: "Integração Real-Time entre Site Comercial e Admin CRM (Vendas, Estoque e Financeiro)",
+    description: `1. Correção de Status & Baixa de Estoque em Checkout: Compras feitas na loja via PIX ou Cartão agora são criadas com status PAGO, baixam imediatamente o physicalStock (e variação) com registro SAIDA no Kardex e contabilizam instantaneamente no Faturamento Bruto, Vendas do Dia, Meta Mensal e DRE.
+2. Conversão de Reservas WhatsApp: Pedidos pelo botão WhatsApp da Sacola e da página /p/[sku] também são gravados no CRM como PENDENTE com reserva (RESERVA no Kardex), e ao aprovar/cancelar no Admin a baixa física ou liberação ocorre corretamente.
+3. Sincronização Multi-Aba e Multi-Navegador (/api/store-state): Adicionada API /api/store-state com persistência em Netlify DB (ou fallback local em tmp) + BroadcastChannel + sincronização no foco da aba, além da correção de persistência síncrona no localStorage em BiaMakesContext.tsx.`,
+    filesModified: [
+      "src/context/BiaMakesContext.tsx",
+      "src/app/api/store-state/route.ts",
+      "src/components/storefront/Storefront.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter a integração entre storefront e admin:
+1. Remover src/app/api/store-state/route.ts e restaurar BiaMakesContext.tsx, Storefront.tsx, CheckoutModal.tsx e /p/[sku]/page.tsx pelo Git.`
+  },
+  {
+    id: "change-2026-11-12-19",
+    timestamp: "2026-11-12T12:49:00-03:00",
+    title: "Redesign Limpo dos Cards de Produto na Vitrine",
+    description: `1. Remoção de Poluição Visual nos Cards: Excluídas as pills/tags dermatológicas, a linha técnica CATEGORIA • SKU + avaliação, o box de Estoque Central / Valor do Frete / Redes Vinculadas e o botão Share2 da foto dos cards na vitrine.
+2. Hierarquia Clean Luxury: O corpo de cada card agora exibe exclusivamente Nome do Produto, Descrição, Seletor de Tom (swatches interativos com stopPropagation) e Bloco Inferior fixado na base com Valor (preço riscado, preço principal em 2xl e parcelamento) + Botão Comprar.
+3. Altura Padronizada no Grid: Aplicado grid com gap-7 e h-full flex flex-col nos cards para alinhamento horizontal uniforme entre todas as colunas.`,
+    filesModified: [
+      "src/components/storefront/Storefront.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para restaurar o layout completo antigo dos cards na vitrine:
+1. Restaurar src/components/storefront/Storefront.tsx pelo histórico do Git.`
+  },
+  {
+    id: "change-2026-11-12-18",
+    timestamp: "2026-11-12T12:41:00-03:00",
+    title: "SEO Dinâmico, Open Graph (WhatsApp/Instagram), JSON-LD e API ViaCEP Real",
+    description: `1. Metadados Dinâmicos & Open Graph em /p/[sku]: Criado Server Component src/app/p/[sku]/layout.tsx com generateMetadata gerando título com preço, descrição com estoque/frete e openGraph.images para preview rico no WhatsApp, Instagram Direct e redes sociais, além de script JSON-LD (Schema.org Product + Offer BRL + Availability) para Google Shopping.
+2. Integração Real com ViaCEP: Criado utilitário fetchCepInfo e formatCepMask em src/lib/utils.ts consultando viacep.com.br com timeout de 3s e fallback offline inteligente.
+3. Máscara 00000-000 e Erro Inline: Atualizados simuladores de CEP do Quick View (Storefront.tsx), página /p/[sku]/page.tsx e CheckoutModal.tsx com máscara automática, bairro/cidade/UF reais, prazos dinâmicos por UF (SP: 1-3 dias; Sudeste/Sul: 2-5 dias; Demais regiões: 4-8 dias úteis) e validação vermelha inline sem alert().`,
+    filesModified: [
+      "src/app/p/[sku]/layout.tsx",
+      "src/app/layout.tsx",
+      "src/lib/utils.ts",
+      "src/components/storefront/Storefront.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/storefront/CheckoutModal.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter metadados dinâmicos ou ViaCEP:
+1. Remover src/app/p/[sku]/layout.tsx e restaurar utils.ts, Storefront.tsx, /p/[sku]/page.tsx e CheckoutModal.tsx pelo Git.`
+  },
+  {
+    id: "change-2026-11-12-17",
+    timestamp: "2026-11-12T12:36:00-03:00",
+    title: "Ordenação, Tags Dermatológicas nos Cards, Busca Ampliada por SKU e Lista de Favoritos",
+    description: `1. Tags Dermatológicas na Vitrine: Exibidas as tags de benefícios de cada produto (Vegano, Cruelty-Free, Ácido Hialurônico, Vitamina E, etc.) diretamente nos cards da vitrine abaixo da descrição curta.
+2. Busca Ampliada (SKU, Descrição e Tags) e Ordenação: O filtro de busca agora localiza produtos por nome, categoria, marca, SKU (ex: BM-BASE-01), descrição e tags dermatológicas (com normalização de acentos). Adicionado seletor de ordenação com opções Destaques, Menor Preço, Maior Preço, Melhor Avaliação e Maior % de Desconto.
+3. Lista de Favoritos (Wishlist): Adicionado botão Heart no canto da imagem dos cards e filtro rápido "Meus Favoritos (X)" ao lado das categorias com persistência em localStorage (biamakes_wishlist_v1).
+4. Toast Notification na Sacola: Ao adicionar um item na vitrine ou no Quick View, exibe notificação flutuante elegante ("✨ [Produto] adicionado à sua sacola!") com botões "Abrir Sacola" e "Continuar comprando".`,
+    filesModified: [
+      "src/components/storefront/Storefront.tsx",
+      "src/context/BiaMakesContext.tsx",
+      "src/app/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter para a vitrine sem ordenação/favoritos/toast:
+1. Restaurar Storefront.tsx, BiaMakesContext.tsx e src/app/page.tsx pelo histórico do Git.`
+  },
+  {
+    id: "change-2026-11-12-16",
+    timestamp: "2026-11-12T12:32:00-03:00",
+    title: "Design System Clean Luxury, next/font, Acessibilidade WCAG AA e Barra de Frete Grátis",
+    description: `1. Otimização de Fontes via next/font/google: Substituído <link> externo em layout.tsx por Montserrat e Outfit com display: 'swap' e variáveis CSS (--font-montserrat, --font-outfit) conectadas em tailwind.config.ts e globals.css, eliminando warnings de build e CLS.
+2. Novo Componente ProductImage: Criado src/components/storefront/ProductImage.tsx com fallback automático para '/logo.jpg' no onError e skeleton animado .shimmer-gold durante o carregamento.
+3. Barra de Progresso de Frete Grátis na Sacola: Adicionada barra dinâmica no topo do Drawer calculando quanto falta para atingir R$ 149,00 com preenchimento em gradiente (from-bia-rosegold to-bia-marsala) e celebração em esmeralda ao desbloquear.
+4. Contraste WCAG AA & Refinamento de Swatches: Adicionado ring-1 ring-inset ring-black/15 em todas as amostras circulares de tom para que cores claras (#FFFFFF, Porcelana) fiquem nítidas no card. Elevados textos de 9px/10px para 11px e opacidades mínimas para /75, padronizando tokens bia-* em Storefront, Navigation e /p/[sku].`,
+    filesModified: [
+      "src/app/layout.tsx",
+      "tailwind.config.ts",
+      "src/app/globals.css",
+      "src/components/storefront/ProductImage.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/components/Navigation.tsx",
+      "src/app/p/[sku]/page.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter para fontes externas ou remover a barra de frete grátis:
+1. Restaurar layout.tsx, tailwind.config.ts, globals.css e Storefront.tsx pelo histórico do Git.`
+  },
+  {
+    id: "change-2026-11-12-15",
+    timestamp: "2026-11-12T12:22:00-03:00",
+    title: "Galeria de Imagens, Quick View Interativo e Correção da Rota /p/[sku]",
+    description: `1. Correção de Fallback Silencioso em /p/[sku]/page.tsx: Removido '|| products[0]' para que links com SKUs inválidos ou removidos exibam a tela amigável de 'Produto não encontrado' com botão de retorno ao catálogo. Adicionado useEffect para sincronizar selectedVar e selectedImageIndex ao hidratar o contexto.
+2. Galeria Multi-Imagens: Adicionado estado selectedImageIndex e miniaturas clicáveis (thumbnails) abaixo da foto principal tanto em /p/[sku]/page.tsx quanto no modal Quick View da vitrine.
+3. Efeito Hover na Vitrine: Os cards de produtos em Storefront.tsx agora exibem suavemente a segunda foto (images[1] - swatch/textura) ao passar o mouse em desktops.
+4. Quick View Completo e Sincronizado: Sincronização bidirecional entre o seletor de tons do modal e activeVariations do card, garantindo que o tom exato escolhido seja adicionado à sacola. Incluídos também dados do Lote ANVISA, Data de Validade e Tags Dermatológicas no modal e na página do produto.`,
+    filesModified: [
+      "src/app/p/[sku]/page.tsx",
+      "src/components/storefront/Storefront.tsx",
+      "src/components/ChangeNotificationModal.tsx",
+      "HISTORICO_ALTERACOES.txt"
+    ],
+    reversalGuide: `Para reverter a galeria de imagens e o comportamento de /p/[sku]:
+1. Restaurar src/app/p/[sku]/page.tsx e src/components/storefront/Storefront.tsx pelo histórico do Git.`
+  },
   {
     id: "change-2026-11-12-14",
     timestamp: "2026-11-12T12:05:00-03:00",

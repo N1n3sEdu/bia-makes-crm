@@ -3,42 +3,29 @@
 import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import { 
-  TrendingUp, 
-  DollarSign, 
-  Package, 
-  ShoppingCart, 
   AlertTriangle, 
-  Calendar, 
-  Layers, 
-  ExternalLink,
-  ArrowUpRight,
-  ShieldAlert,
-  Zap,
-  Target,
-  Clock,
-  Truck,
-  CheckCircle2,
-  Box,
-  Store,
-  ChevronRight,
-  Sparkles,
-  Search,
-  FileSpreadsheet,
-  Plus,
-  RefreshCw,
-  BarChart3,
-  Percent,
-  Flame,
-  Radio
+  ExternalLink, 
+  ShieldAlert, 
+  Target, 
+  Truck, 
+  Box, 
+  ChevronRight, 
+  Search, 
+  Plus, 
+  BarChart3, 
+  Flame, 
+  Radio, 
+  Wrench, 
+  Power
 } from "lucide-react";
-import { Product, Order, FinancialMetric, MarketplaceChannel } from "@/types";
+import { Product, Order, FinancialMetric } from "@/types";
 import { formatCurrency, getDaysUntil, formatDateShort } from "@/lib/utils";
+import { useBiaMakes } from "@/context/BiaMakesContext";
 
 interface CrmDashboardProps {
   products: Product[];
   orders: Order[];
   financial: FinancialMetric;
-  channels: MarketplaceChannel[];
   onNavigateTab: (tab: string) => void;
 }
 
@@ -46,9 +33,9 @@ export function CrmDashboard({
   products,
   orders,
   financial,
-  channels,
   onNavigateTab,
 }: CrmDashboardProps) {
+  const { isMaintenanceMode, maintenanceMessage, setMaintenanceMode } = useBiaMakes();
   const [chartPeriod, setChartPeriod] = useState<"30days" | "14days" | "7days" | "today">("7days");
 
   // Saudação dinâmica com base no horário
@@ -104,25 +91,32 @@ export function CrmDashboard({
     let costTotal = 0;
     let retailTotal = 0;
     let totalPhysical = 0;
-    let totalReserved = 0;
 
     products.forEach((p) => {
       const physical = Number(p.physicalStock) || 0;
-      const reserved = Number(p.reservedStock) || 0;
       const cost = Number(p.costPrice) || 0;
       const sellingPrice = p.promoPrice && p.promoPrice > 0 ? p.promoPrice : p.salePrice;
 
       costTotal += physical * cost;
       retailTotal += physical * sellingPrice;
       totalPhysical += physical;
-      totalReserved += reserved;
+    });
+
+    let totalSold = 0;
+    orders.forEach((o) => {
+      if (o.status !== "CANCELADO" && o.status !== "DEVOLUCAO") {
+        o.items?.forEach((item) => {
+          totalSold += Number(item.quantity) || 0;
+        });
+      }
     });
 
     const potentialGrossProfit = retailTotal - costTotal;
     const potentialMargin = retailTotal > 0 ? ((potentialGrossProfit / retailTotal) * 100).toFixed(1) : "0.0";
-    const available = Math.max(0, totalPhysical - totalReserved);
-    const availablePct = totalPhysical > 0 ? Math.round((available / totalPhysical) * 100) : 0;
-    const reservedPct = totalPhysical > 0 ? Math.round((totalReserved / totalPhysical) * 100) : 0;
+    const available = totalPhysical;
+    const totalVolume = totalPhysical + totalSold;
+    const availablePct = totalVolume > 0 ? Math.round((available / totalVolume) * 100) : 100;
+    const soldPct = totalVolume > 0 ? Math.round((totalSold / totalVolume) * 100) : 0;
 
     return {
       costTotal,
@@ -130,12 +124,12 @@ export function CrmDashboard({
       potentialGrossProfit,
       potentialMargin,
       totalPhysical,
-      totalReserved,
+      totalSold,
       available,
       availablePct,
-      reservedPct,
+      soldPct,
     };
-  }, [products]);
+  }, [products, orders]);
 
   // 4. Ranking Curva ABC - Top 4 Produtos Mais Rentáveis
   const topProducts = useMemo(() => {
@@ -155,40 +149,15 @@ export function CrmDashboard({
       .slice(0, 4);
   }, [products]);
 
-  // 5. Mix de Canais com Share de Vendas (100% dinâmico a partir dos pedidos reais faturados)
-  const channelPerformance = useMemo(() => {
-    const activeStatuses = ["PAGO", "SEPARACAO", "ENVIADO", "CONCLUIDO"];
-    const validOrders = orders.filter((o) => activeStatuses.includes(o.status));
-
-    const revenueByChannel: Record<string, number> = {};
-    validOrders.forEach((o) => {
-      revenueByChannel[o.channel] = (revenueByChannel[o.channel] || 0) + o.totalAmount;
-    });
-
-    const total = validOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-
-    return channels.map((c) => {
-      const rev = revenueByChannel[c.code] ?? 0;
-      const share = total > 0 ? ((rev / total) * 100).toFixed(1) : "0.0";
-      const shareNum = total > 0 ? (rev / total) * 100 : 0;
-      return {
-        ...c,
-        revenue: rev,
-        share,
-        shareNum,
-      };
-    }).sort((a, b) => b.revenue - a.revenue);
-  }, [channels, orders]);
-
-  // 6. Central de Risco (Ruptura & ANVISA)
+  // 5. Central de Risco (Ruptura & ANVISA)
   const riskAlerts = useMemo(() => {
     const lowStock = products
-      .filter((p) => p.physicalStock - p.reservedStock <= p.minStock)
+      .filter((p) => p.physicalStock <= p.minStock)
       .map((p) => ({
         product: p,
         type: "rupture" as const,
         title: "Ruptura Iminente",
-        desc: `Apenas ${p.physicalStock - p.reservedStock} un disponíveis (Mín: ${p.minStock} un)`,
+        desc: `Apenas ${p.physicalStock} un disponíveis (Mín: ${p.minStock} un)`,
         severity: "danger" as const,
       }));
 
@@ -344,6 +313,51 @@ export function CrmDashboard({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
+      {/* BANNER INFORMATIVO SE O MODO MANUTENÇÃO ESTIVER ATIVO */}
+      {isMaintenanceMode && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white p-4 sm:p-5 rounded-3xl shadow-lg flex flex-wrap items-center justify-between gap-4 border border-amber-400">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/20 rounded-2xl shrink-0">
+              <Wrench className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-white/90 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                <span>Modo Manutenção Ativo na Loja Virtual</span>
+              </div>
+              <p className="text-xs sm:text-sm text-white font-medium mt-0.5">
+                Visitantes estão visualizando a tela <strong>&quot;Voltamos já!&quot;</strong> com a logo oficial e barra animada de carregamento.
+              </p>
+              {maintenanceMessage && (
+                <div className="text-[11px] text-white/80 italic mt-0.5">
+                  Mensagem aos clientes: &ldquo;{maintenanceMessage}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <a
+              href="/maintenance"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>Ver Tela</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setMaintenanceMode(false, "")}
+              className="px-5 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-900 text-xs font-extrabold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Power className="w-4 h-4 text-emerald-600" />
+              <span>Reabrir Loja Oficial</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. HEADER COCKPIT + TERMÔMETRO DE META MENSAL INTEGRADO */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
@@ -690,11 +704,11 @@ export function CrmDashboard({
             </div>
           </div>
 
-          {/* Barra de Ocupação: Disponível vs Reservado */}
+          {/* Barra de Ocupação: Disponíveis vs Vendidos */}
           <div className="space-y-1.5 pt-1">
             <div className="flex items-center justify-between text-xs font-bold">
-              <span>Disponível: {warehouseValuation.available} un ({warehouseValuation.availablePct}%)</span>
-              <span className="text-amber-700">Reservado: {warehouseValuation.totalReserved} un ({warehouseValuation.reservedPct}%)</span>
+              <span className="text-emerald-700">Disponíveis: {warehouseValuation.available} un ({warehouseValuation.availablePct}%)</span>
+              <span className="text-[#7A3F51]">Vendidos: {warehouseValuation.totalSold} un ({warehouseValuation.soldPct}%)</span>
             </div>
             <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden flex border border-[#E9D9CD]">
               <div
@@ -702,8 +716,8 @@ export function CrmDashboard({
                 className="h-full bg-emerald-500"
               />
               <div
-                style={{ width: `${warehouseValuation.reservedPct}%` }}
-                className="h-full bg-amber-500"
+                style={{ width: `${warehouseValuation.soldPct}%` }}
+                className="h-full bg-[#7A3F51]"
               />
             </div>
           </div>

@@ -14,23 +14,26 @@ import {
   Search,
   Bell,
   ChevronDown,
-  FileSpreadsheet,
   Users,
   AlertTriangle,
   ShoppingCart,
   RotateCcw,
   CheckCheck,
   Lock,
-  FileText
+  FileText,
+  Power,
+  Globe,
+  Wrench,
+  X
 } from "lucide-react";
-import { SystemUser, ProductCategory, Product, Order, MarketplaceChannel } from "@/types";
+import { SystemUser, ProductCategory, Product, Order } from "@/types";
 import { STORE_CONFIG } from "@/lib/data";
+import { useBiaMakes } from "@/context/BiaMakesContext";
 
 interface NavigationProps {
   variant?: 'storefront' | 'admin';
   cartCount: number;
   onOpenCart?: () => void;
-  isAdminAuthenticated?: boolean;
   adminUser?: SystemUser;
   onLogoutAdmin?: () => void;
   onOpenSpotlight?: () => void;
@@ -38,7 +41,6 @@ interface NavigationProps {
   onNavigateTab?: (tab: string) => void;
   products?: Product[];
   orders?: Order[];
-  channels?: MarketplaceChannel[];
   selectedCategory?: ProductCategory | 'Todos';
   onSelectCategory?: (category: ProductCategory | 'Todos') => void;
 }
@@ -47,7 +49,6 @@ export function Navigation({
   variant = 'storefront',
   cartCount,
   onOpenCart,
-  isAdminAuthenticated = false,
   adminUser,
   onLogoutAdmin,
   onOpenSpotlight,
@@ -55,10 +56,17 @@ export function Navigation({
   onNavigateTab,
   products = [],
   orders = [],
-  channels = [],
   selectedCategory = 'Todos',
   onSelectCategory,
 }: NavigationProps) {
+  const { isMaintenanceMode, maintenanceMessage, setMaintenanceMode } = useBiaMakes();
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [customMaintMsg, setCustomMaintMsg] = useState(maintenanceMessage || "");
+
+  useEffect(() => {
+    setCustomMaintMsg(maintenanceMessage || "");
+  }, [maintenanceMessage]);
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -289,6 +297,7 @@ export function Navigation({
           <div className="flex items-center gap-3">
             {variant === 'storefront' ? (
               <button
+                id="header-cart-button"
                 onClick={onOpenCart}
                 className="relative flex items-center gap-2 bg-[#F5DDE5]/80 hover:bg-[#F5DDE5] text-[#7A3F51] px-4 py-2.5 rounded-full border border-[#E9D9CD] transition-all shadow-sm group"
                 aria-label="Abrir sacola de compras"
@@ -449,6 +458,34 @@ export function Navigation({
                   )}
                 </div>
 
+                {/* Status da Loja Virtual (Online / Em Manutenção) com controle rápido */}
+                <button
+                  type="button"
+                  onClick={() => setIsMaintenanceModalOpen(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                    isMaintenanceMode
+                      ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 ring-2 ring-amber-400/30 animate-pulse"
+                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+                  }`}
+                  title={
+                    isMaintenanceMode
+                      ? "Loja em Manutenção (Clientes visualizam a tela Voltamos Já!). Clique para configurar ou reabrir."
+                      : "Loja Virtual Online para compras. Clique para ativar manutenção se for atualizar."
+                  }
+                >
+                  {isMaintenanceMode ? (
+                    <>
+                      <Wrench className="w-3.5 h-3.5 text-amber-800" />
+                      <span className="hidden md:inline">Loja em Manutenção</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="hidden md:inline">Loja Online</span>
+                    </>
+                  )}
+                </button>
+
                 <Link
                   href="/"
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FAF0F4] text-[#7A3F51] border border-[#E9D9CD] text-xs font-semibold transition-all shadow-sm"
@@ -565,6 +602,121 @@ export function Navigation({
 
         </div>
       </div>
+
+      {/* Modal de Controle do Modo Manutenção & Tela "Voltamos Já!" */}
+      {isMaintenanceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#E9D9CD] shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative animate-in zoom-in-95 duration-200">
+            
+            {/* Botão de Fechar */}
+            <button
+              type="button"
+              onClick={() => setIsMaintenanceModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-full text-gray-400 hover:text-[#39313A] hover:bg-black/5 transition-colors cursor-pointer"
+              title="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Cabeçalho */}
+            <div className="flex items-start gap-4">
+              <div className={`p-3.5 rounded-2xl shrink-0 ${
+                isMaintenanceMode ? "bg-amber-100 text-amber-800" : "bg-[#FAF0F4] text-[#9C5B6F]"
+              }`}>
+                {isMaintenanceMode ? <Wrench className="w-6 h-6" /> : <Globe className="w-6 h-6" />}
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-display text-xl font-extrabold text-[#39313A]">
+                  Controle da Loja & Modo Manutenção
+                </h3>
+                <p className="text-xs text-[#39313A]/70 leading-relaxed">
+                  Gerencie a visibilidade pública da vitrine. Ao ativar, todos os clientes visualizarão a tela com a logo oficial e a barra &quot;Voltamos Já!&quot;.
+                </p>
+              </div>
+            </div>
+
+            {/* Card de Status Atual */}
+            <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-3 ${
+              isMaintenanceMode
+                ? "bg-amber-50/80 border-amber-200 text-amber-900"
+                : "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${
+                  isMaintenanceMode ? "bg-amber-500 animate-ping" : "bg-emerald-500"
+                }`} />
+                <span>
+                  Status Atual: <strong>{isMaintenanceMode ? "Loja em Manutenção (Voltamos Já)" : "Loja Aberta e Online"}</strong>
+                </span>
+              </div>
+              <a
+                href="/maintenance"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] underline font-bold text-[#7A3F51] hover:text-[#9C5B6F] flex items-center gap-1"
+              >
+                <span>Ver prévia da tela</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            {/* Configuração de Mensagem Opcional */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#39313A]">
+                Mensagem personalizada para os clientes (opcional)
+              </label>
+              <textarea
+                value={customMaintMsg}
+                onChange={(e) => setCustomMaintMsg(e.target.value)}
+                placeholder="Ex: Estamos atualizando nosso estoque com novas bases HD e paletas de sombras! Voltamos em instantes."
+                rows={3}
+                className="w-full p-3 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD] focus:outline-none focus:border-[#9C5B6F] text-xs font-medium text-[#39313A] resize-none"
+              />
+              <p className="text-[10px] text-gray-500">
+                Se deixar em branco, será exibida a mensagem padrão oficial da marca Bia Makes.
+              </p>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-[#E9D9CD]/60">
+              <button
+                type="button"
+                onClick={() => setIsMaintenanceModalOpen(false)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-[#E9D9CD] text-xs font-bold text-[#39313A] hover:bg-[#FAF7F8] transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              {isMaintenanceMode ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaintenanceMode(false, "");
+                    setIsMaintenanceModalOpen(false);
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Power className="w-4 h-4" />
+                  <span>Reabrir Loja Oficial para Clientes</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaintenanceMode(true, customMaintMsg);
+                    setIsMaintenanceModalOpen(false);
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-gradient-to-r from-[#9C5B6F] to-[#7A3F51] hover:opacity-95 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Wrench className="w-4 h-4" />
+                  <span>Ativar Modo Manutenção (&quot;Voltamos Já!&quot;)</span>
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </header>
   );
 }

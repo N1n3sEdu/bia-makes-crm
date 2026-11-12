@@ -40,7 +40,7 @@ export function QrCodeModal({
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(fullUrl);
+    navigator.clipboard?.writeText(fullUrl).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

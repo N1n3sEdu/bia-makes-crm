@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnalyticsDb } from '@/lib/analytics/db';
-
-function validateAdminAuth(req: NextRequest): boolean {
-  const adminSecret = process.env.ANALYTICS_ADMIN_TOKEN;
-  if (!adminSecret) return true;
-
-  const tokenHeader = req.headers.get('x-analytics-token');
-  const authHeader = req.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-  return tokenHeader === adminSecret || bearerToken === adminSecret;
-}
+import { validateAdminAuth } from '@/lib/analytics/server';
 
 export async function GET(req: NextRequest) {
   if (!validateAdminAuth(req)) {

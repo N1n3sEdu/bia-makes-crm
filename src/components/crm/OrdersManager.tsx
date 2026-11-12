@@ -7,7 +7,6 @@ import {
   X,
   RotateCcw,
   PackageCheck,
-  DollarSign,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -15,25 +14,21 @@ import {
   MessageCircle,
   Copy,
   Printer,
-  ChevronRight,
-  ExternalLink,
-  ShieldCheck,
   Layers,
   ShoppingBag,
   Store,
   Instagram,
   Filter,
-  Check,
-  ArrowUpRight
+  Check
 } from "lucide-react";
-import { Order, OrderStatus, ChannelType } from "@/types";
+import { Order, OrderStatus, ChannelType, Product, MarketplaceChannel } from "@/types";
 import { formatCurrency, formatDate, resolveOrderCompanyShippingCost } from "@/lib/utils";
 
 interface OrdersManagerProps {
   orders: Order[];
   onUpdateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
-  products?: any[];
-  channels?: any[];
+  products?: Product[];
+  channels?: MarketplaceChannel[];
 }
 
 type PeriodFilterType = "all" | "today" | "week" | "month";
@@ -77,7 +72,14 @@ export function OrdersManager({
   // Tecla '/' para foco rápido na barra de pesquisa
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+      const target = e.target as HTMLElement | null;
+      const tagName = target?.tagName?.toUpperCase() || "";
+      const isEditable =
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT" ||
+        target?.isContentEditable;
+      if (e.key === "/" && !isEditable) {
         e.preventDefault();
         const searchInput = document.getElementById("order-search-input");
         searchInput?.focus();
@@ -115,7 +117,10 @@ export function OrdersManager({
   // Filtragem composta dos pedidos
   const filteredOrders = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const toLocalDateStr = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const todayStr = toLocalDateStr(now);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -144,7 +149,12 @@ export function OrdersManager({
       let matchPeriod = true;
       const orderDate = new Date(o.createdAt);
       if (periodFilter === "today") {
-        matchPeriod = o.createdAt.slice(0, 10) === todayStr;
+        const orderLocalStr = /^\d{4}-\d{2}-\d{2}$/.test(o.createdAt)
+          ? o.createdAt
+          : !isNaN(orderDate.getTime())
+            ? toLocalDateStr(orderDate)
+            : o.createdAt.slice(0, 10);
+        matchPeriod = orderLocalStr === todayStr;
       } else if (periodFilter === "week") {
         matchPeriod = orderDate >= sevenDaysAgo;
       } else if (periodFilter === "month") {
@@ -978,13 +988,13 @@ export function OrdersManager({
 
             {/* Raio-X de Frete & Lucro desta Encomenda */}
             {(() => {
-              const channelInfo = channels.find((c: any) => c.code === viewingOrder.channel);
+              const channelInfo = channels.find((c) => c.code === viewingOrder.channel);
               const feePct = channelInfo ? channelInfo.feePercentage : 0;
               const estFee = viewingOrder.totalAmount * (feePct / 100);
               
               let orderCmv = 0;
               viewingOrder.items.forEach((it) => {
-                const prod = products.find((p: any) => p.id === it.productId || p.sku === it.sku);
+                const prod = products.find((p) => p.id === it.productId || p.sku === it.sku);
                 const cost = prod && typeof prod.costPrice === "number" ? prod.costPrice : it.price * 0.38;
                 orderCmv += cost * it.quantity;
               });

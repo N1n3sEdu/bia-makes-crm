@@ -99,6 +99,22 @@ export interface OrderItem {
   price: number;
 }
 
+export type ShippingCarrierId =
+  | 'CORREIOS_PAC'
+  | 'JADLOG_PACKAGE'
+  | 'CORREIOS_SEDEX'
+  | 'LOGGI_EXPRESS';
+
+export interface ShippingQuoteOption {
+  carrierId: ShippingCarrierId;
+  carrierName: string;        // Ex: "Correios PAC", "Jadlog Package", "Correios SEDEX", "Loggi Express"
+  serviceLabel: string;       // Ex: "Econômico", "Rápido", "Expresso"
+  deliveryDays: string;       // Ex: "3 a 5 dias úteis"
+  companyCost: number;        // CUSTO REAL que a Bia Makes paga à transportadora (SEMPRE > 0, nunca zera!)
+  customerPrice: number;      // Valor cobrado do cliente (0 se tiver Frete Grátis elegível na modalidade, ou valor integral)
+  isFreeForCustomer: boolean; // true quando sai grátis para o cliente
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -108,7 +124,12 @@ export interface Order {
   customerPhone: string;
   items: OrderItem[];
   totalAmount: number;
-  shippingAmount?: number;
+  shippingAmount?: number;            // Valor de frete PAGO PELO CLIENTE (R$ 0,00 quando Frete Grátis)
+  companyShippingCost?: number;       // CUSTO REAL DO FRETE PAGO PELA BIA MAKES à transportadora (ex: R$ 16,90)
+  shippingCarrier?: string;           // Nome da transportadora escolhida (ex: "Correios PAC" ou "Jadlog Package")
+  shippingServiceDays?: string;       // Prazo prometido (ex: "2 a 4 dias úteis")
+  shippingCep?: string;               // CEP de destino (ex: "01310-100")
+  isFreeShippingSubsidized?: boolean; // true quando o cliente não pagou frete e a loja absorveu o custo
   status: OrderStatus;
   paymentMethod: string;
   shippingAddress: string;
@@ -136,19 +157,6 @@ export interface MarketplaceChannel {
   color: string;
 }
 
-export interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  city: string;
-  ordersCount: number;
-  totalSpent: number;
-  foundationShade?: string;
-  skinType?: 'Oleosa' | 'Seca' | 'Mista' | 'Normal';
-  lastOrderDate: string;
-}
-
 export interface FinancialMetric {
   grossRevenue: number;
   marketplaceFees: number;
@@ -160,6 +168,9 @@ export interface FinancialMetric {
   averageTicket: number;
   refundedAmount?: number;
   refundedOrdersCount?: number;
+  totalCompanyShippingCost?: number;    // Soma de todos os fretes pagos pela empresa nos pedidos ativos
+  subsidizedFreeShippingCost?: number;  // Quanto a empresa gastou bancando "Frete Grátis" para clientes
+  customerPaidShippingTotal?: number;   // Quanto os clientes pagaram de frete (quando não era grátis)
 }
 
 export type UserRole = 'ADMIN' | 'GERENTE' | 'ESTOQUE' | 'VENDAS' | 'FINANCEIRO';

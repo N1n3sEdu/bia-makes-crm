@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
 import { CrmDashboard } from "@/components/crm/CrmDashboard";
@@ -22,10 +22,7 @@ import {
   Package, 
   Layers, 
   ShoppingCart, 
-  Globe, 
   DollarSign, 
-  FileSpreadsheet,
-  Users,
   Radar
 } from "lucide-react";
 
@@ -63,9 +60,6 @@ export default function AdminPage() {
     addMovement,
     updateProductStock,
     updateOrderStatus,
-    syncChannel,
-    syncAllChannels,
-    updateChannel,
   } = useBiaMakes();
 
   const allowedTabs = ROLE_ALLOWED_TABS[adminUser?.role || "ADMIN"] || ROLE_ALLOWED_TABS.ADMIN;
@@ -89,13 +83,11 @@ export default function AdminPage() {
       <Navigation
         variant="admin"
         cartCount={totalCartItems}
-        isAdminAuthenticated={isAdminAuthenticated}
         adminUser={adminUser}
         crmActiveTab={crmActiveTab}
         onNavigateTab={(tab) => setCrmActiveTab(tab)}
         products={products}
         orders={orders}
-        channels={channels}
         onOpenSpotlight={() => setIsSpotlightOpen(true)}
         onLogoutAdmin={() => {
           logoutAdmin();
@@ -198,7 +190,6 @@ export default function AdminPage() {
             products={products}
             orders={orders}
             financial={financial}
-            channels={channels}
             onNavigateTab={(tab) => setCrmActiveTab(tab)}
           />
         )}

@@ -6,6 +6,36 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #015
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 12/11/2026
+HORÁRIO              : 12:18:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"quando seleciona 7 dias esta bugado, coloque igual o de 14 e de 30 dias"
+
+MOTIVO DO AJUSTE:
+Ao selecionar o período "7 Dias", o container flex comprimia o seletor fazendo com que
+os textos de cada botão quebrassem em duas linhas ("30 \n Dias", "14 \n Dias", "7 \n Dias").
+Quando "14 Dias" estava ativo, ficavam na mesma linha.
+
+ARQUIVOS MODIFICADOS:
+- src/components/crm/CrmDashboard.tsx (definida largura uniforme simétrica de w-[70px]
+  para cada botão com whitespace-nowrap, gap-1, shrink-0 e container de título flex-1 min-w-0)
+
+COMO TESTAR:
+1. Acesse o CRM Dashboard (/admin).
+2. Na seção "Evolução Comercial", clique nos botões "30 Dias", "14 Dias" e "7 Dias".
+3. Verifique que em todos os três períodos os botões permanecem exatamente na mesma linha,
+   com dimensões proporcionais e sem quebra de texto.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/components/crm/CrmDashboard.tsx
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #014
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

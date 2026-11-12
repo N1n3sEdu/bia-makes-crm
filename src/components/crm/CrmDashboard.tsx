@@ -547,10 +547,10 @@ export function CrmDashboard({
         
         {/* Coluna Esquerda: Gráfico de Performance Comercial Real (7 colunas) */}
         <div className="lg:col-span-7 bg-white p-6 sm:p-7 rounded-3xl border border-[#E9D9CD] shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <h3 className="font-serif text-lg font-bold text-[#39313A] flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#C69A76]" />
+                <BarChart3 className="w-4 h-4 text-[#C69A76] shrink-0" />
                 <span>{commercialPerformance.periodTitle}</span>
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -559,11 +559,11 @@ export function CrmDashboard({
             </div>
 
             {/* Seletor de Período Solicitado: 30 Dias | 14 Dias | 7 Dias */}
-            <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center text-[11px] font-bold self-start sm:self-auto shrink-0">
+            <div className="bg-[#FAF7F8] p-1 rounded-xl border border-[#E9D9CD] flex items-center gap-1 text-[11px] font-bold self-start sm:self-auto shrink-0 select-none">
               <button
                 type="button"
                 onClick={() => setChartPeriod("30days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
+                className={`w-[70px] py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "30days"
                     ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"
@@ -574,7 +574,7 @@ export function CrmDashboard({
               <button
                 type="button"
                 onClick={() => setChartPeriod("14days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
+                className={`w-[70px] py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "14days"
                     ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"
@@ -585,7 +585,7 @@ export function CrmDashboard({
               <button
                 type="button"
                 onClick={() => setChartPeriod("7days")}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
+                className={`w-[70px] py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-center ${
                   chartPeriod === "7days"
                     ? "bg-[#7A3F51] text-white shadow-2xs font-extrabold"
                     : "text-gray-600 hover:text-[#7A3F51]"

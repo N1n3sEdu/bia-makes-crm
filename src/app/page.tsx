@@ -27,6 +27,17 @@ export default function Home() {
 
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
   const [adminBypassView, setAdminBypassView] = useState(false);
+  const [forcePreviewMaintenance, setForcePreviewMaintenance] = useState(false);
+
+  // Ativação direta para testes visuais via query string (?manutencao=true ou ?maintenance=true)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const search = window.location.search.toLowerCase();
+      if (search.includes("manutencao=true") || search.includes("maintenance=true")) {
+        setForcePreviewMaintenance(true);
+      }
+    }
+  }, []);
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -42,7 +53,7 @@ export default function Home() {
   }
 
   // 2. Modo Manutenção / Atualização Ativo
-  if (isMaintenanceMode) {
+  if (isMaintenanceMode || forcePreviewMaintenance) {
     // Se for cliente comum ou se o admin optar por ver a tela de manutenção
     if (!isAdminAuthenticated || !adminBypassView) {
       return (

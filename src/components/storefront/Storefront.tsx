@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -102,6 +102,13 @@ export function Storefront({
     product: Product;
     variation?: ProductVariation;
   } | null>(null);
+  const addedModalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (addedModalTimerRef.current) clearTimeout(addedModalTimerRef.current);
+    };
+  }, []);
 
   const triggerFlyToCart = (
     startElement: HTMLElement | null,
@@ -135,8 +142,12 @@ export function Storefront({
       }, 850);
     }
 
-    // Exibe modal de confirmação bonito e moderno
+    // Exibe o balão no canto inferior direito e fecha automaticamente em 1 segundo
+    if (addedModalTimerRef.current) clearTimeout(addedModalTimerRef.current);
     setAddedSuccessModal({ product, variation });
+    addedModalTimerRef.current = setTimeout(() => {
+      setAddedSuccessModal(null);
+    }, 1000);
   };
 
   const handleAddWithToast = (
@@ -1729,98 +1740,100 @@ export function Storefront({
         </div>
       )}
 
-      {/* MODAL MODERNO E ELEGANTE DE CONFIRMAÇÃO DE ITEM ADICIONADO */}
+      {/* BALÃO MODERNO DE CONFIRMAÇÃO NO CANTO INFERIOR DIREITO (AUTO-FECHA EM 1s) */}
       {addedSuccessModal && (
-        <div 
-          onClick={() => setAddedSuccessModal(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in"
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 right-5 z-50 w-[calc(100vw-2.5rem)] max-w-sm bg-white/95 backdrop-blur-md rounded-3xl p-4 sm:p-5 shadow-2xl border border-[#E9D9CD] animate-in fade-in slide-in-from-bottom-4 duration-200 space-y-3.5"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full p-6 relative shadow-2xl border border-[#E9D9CD] animate-in zoom-in-95 duration-200 space-y-5"
+          {/* Botão Fechar */}
+          <button
+            type="button"
+            onClick={() => {
+              if (addedModalTimerRef.current) clearTimeout(addedModalTimerRef.current);
+              setAddedSuccessModal(null);
+            }}
+            className="absolute top-3.5 right-3.5 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+            aria-label="Fechar"
           >
-            {/* Botão Fechar */}
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Ícone de Sucesso e Título */}
+          <div className="flex items-center gap-2.5 pr-6">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <Check className="w-5 h-5 stroke-[3]" />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+                Adicionado com Sucesso!
+              </span>
+              <h3 className="font-display text-sm font-bold text-[#39313A] leading-tight">
+                Item colocado na sua sacola
+              </h3>
+            </div>
+          </div>
+
+          {/* Card com Detalhes do Produto */}
+          <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-white border border-[#E9D9CD] shrink-0">
+              <ProductImage
+                src={addedSuccessModal.product.images?.[0] || "/logo.jpg"}
+                alt={addedSuccessModal.product.name}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold text-[#39313A] line-clamp-1">
+                {addedSuccessModal.product.name}
+              </h4>
+              {addedSuccessModal.variation && (
+                <p className="text-[11px] font-semibold text-[#9C5B6F] mt-0.5 truncate">
+                  Tom: {addedSuccessModal.variation.name}
+                </p>
+              )}
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-extrabold text-[#7A3F51]">
+                  {formatCurrency(addedSuccessModal.product.promoPrice || addedSuccessModal.product.salePrice)}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                  Estoque Garantido
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Resumo e Botões de Ação */}
+          <div className="flex items-center justify-between text-[11px] px-1 text-[#39313A]/80">
+            <span>Itens na sacola: <strong>{cart.reduce((a, b) => a + b.quantity, 0)}</strong></span>
+            <span>Subtotal: <strong className="text-[#7A3F51]">{formatCurrency(subtotal)}</strong></span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setAddedSuccessModal(null)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
-              aria-label="Fechar"
+              onClick={() => {
+                if (addedModalTimerRef.current) clearTimeout(addedModalTimerRef.current);
+                setAddedSuccessModal(null);
+              }}
+              className="w-full py-2 rounded-full border border-[#E9D9CD] bg-[#FAF7F8] hover:bg-[#F5DDE5]/40 text-[#7A3F51] text-[11px] font-bold transition-all cursor-pointer text-center"
             >
-              <X className="w-5 h-5" />
+              Continuar Comprando
             </button>
-
-            {/* Ícone de Sucesso e Título */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                <Check className="w-6 h-6 stroke-[3]" />
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                  Adicionado com Sucesso!
-                </span>
-                <h3 className="font-display text-lg font-bold text-[#39313A]">
-                  Item colocado na sua sacola
-                </h3>
-              </div>
-            </div>
-
-            {/* Card com Detalhes do Produto */}
-            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[#FAF7F8] border border-[#E9D9CD]/80">
-              <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white border border-[#E9D9CD] shrink-0">
-                <ProductImage
-                  src={addedSuccessModal.product.images?.[0] || "/logo.jpg"}
-                  alt={addedSuccessModal.product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-bold text-[#39313A] line-clamp-1">
-                  {addedSuccessModal.product.name}
-                </h4>
-                {addedSuccessModal.variation && (
-                  <p className="text-[11px] font-semibold text-[#9C5B6F] mt-0.5">
-                    Tom: {addedSuccessModal.variation.name}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-extrabold text-[#7A3F51]">
-                    {formatCurrency(addedSuccessModal.product.promoPrice || addedSuccessModal.product.salePrice)}
-                  </span>
-                  <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Estoque Garantido
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Resumo da Sacola */}
-            <div className="flex items-center justify-between text-xs px-2 text-[#39313A]/80">
-              <span>Itens na sacola: <strong>{cart.reduce((a, b) => a + b.quantity, 0)}</strong></span>
-              <span>Subtotal: <strong className="text-[#7A3F51]">{formatCurrency(subtotal)}</strong></span>
-            </div>
-
-            {/* Botões de Ação */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => setAddedSuccessModal(null)}
-                className="w-full py-3 rounded-full border border-[#E9D9CD] bg-[#FAF7F8] hover:bg-[#F5DDE5]/40 text-[#7A3F51] text-xs font-bold transition-all cursor-pointer text-center"
-              >
-                Continuar Comprando
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddedSuccessModal(null);
-                  onOpenCart?.();
-                }}
-                className="w-full py-3 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>Ver Sacola</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (addedModalTimerRef.current) clearTimeout(addedModalTimerRef.current);
+                setAddedSuccessModal(null);
+                onOpenCart?.();
+              }}
+              className="w-full py-2 rounded-full bg-[#9C5B6F] hover:bg-[#7A3F51] text-white text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Ver Sacola</span>
+            </button>
           </div>
         </div>
       )}

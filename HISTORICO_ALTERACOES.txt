@@ -6,6 +6,33 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #039
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 23/11/2026
+HORÁRIO              : 15:25:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"Perfeito o projeto esta indo muito bem, quero subir ele para nuvem para poder mecher nele de casa, suba ele de uma forma que eu consiga mecher direto de casa"
+
+MOTIVO DO AJUSTE:
+Sincronização integral do código e estado atual do projeto para a nuvem (GitHub & Netlify) permitindo acesso e continuidade direta de casa:
+1. Em `src/lib/store-state-snapshot.json` e `src/app/api/store-state/route.ts`:
+   - Exportado o snapshot completo do estado atual do sistema (produtos, variações, pedidos, movimentações do Kardex e canais) para dentro do repositório versionado (`src/lib/store-state-snapshot.json`).
+   - Atualizada a API `/api/store-state` para ler e gravar simultaneamente no Netlify Database (na nuvem), no arquivo do projeto (`src/lib/store-state-snapshot.json`) e no cache local, garantindo que ao clonar o projeto em casa ou acessar pela nuvem todos os dados cadastrados estejam preservados.
+2. Em `src/components/storefront/Storefront.tsx`:
+   - Refinado o aviso de produto adicionado à sacola para um card flutuante não-bloqueante no canto inferior direito com auto-dismiss de 4 segundos.
+3. Em `src/app/global-error.tsx`, `src/app/page.tsx` e `src/components/MaintenanceLoadingScreen.tsx`:
+   - Reforçada a tela de atualização técnica (`global-error.tsx`), ajuste de imagem da logo em `MaintenanceLoadingScreen.tsx` e suporte a preview via `?manutencao=true`.
+
+COMO TESTAR:
+1. Em casa, basta clonar o repositório `https://github.com/N1n3sEdu/bia-makes-crm.git` (ou rodar `git pull origin main`) e executar `npm install && npm run dev`, ou acessar diretamente a URL publicada na nuvem.
+
+COMO REVERTER:
+1. Executar git revert HEAD e npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #038
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 12/11/2026

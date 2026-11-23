@@ -179,12 +179,13 @@ export function MaintenanceLoadingScreen({
           {/* Anel de brilho pulsante no tema */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#9C5B6F] via-[#C69A76] to-[#D4AF37] blur-md opacity-50 animate-pulse-glow" />
           
-          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden mx-auto ring-4 ring-[#C69A76]/50 shadow-2xl bg-white">
+          <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden mx-auto ring-4 ring-[#C69A76]/50 shadow-2xl bg-white flex items-center justify-center">
             <Image
               src="/logo.jpg"
               alt="Logo Oficial Bia Makes"
-              fill
-              className="object-cover"
+              width={144}
+              height={144}
+              className="w-full h-full object-cover rounded-full"
               priority
             />
           </div>

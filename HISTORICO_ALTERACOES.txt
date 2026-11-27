@@ -6,6 +6,98 @@ Este arquivo registra cronologicamente todas as alterações realizadas no códi
 contendo a data, horário, o que foi alterado e como reverter a função se necessário.
 
 --------------------------------------------------------------------------------
+REGISTRO #042
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 27/11/2026
+HORÁRIO              : 17:23:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"remova esses 2 novamente, não quero que fique aparecendo aqui"
+(Com print anexado destacando os botões "Importar & Exportar" e "Usuários & Perfis" na barra horizontal de abas do CRM)
+
+MOTIVO DO AJUSTE:
+Remoção dos botões de atalho "Importar & Exportar" e "Usuários & Perfis" da barra de abas principal do CRM:
+1. Em `src/app/admin/page.tsx`:
+   - Removidos os botões `<button onClick={() => setCrmActiveTab("import")}>` e `<button onClick={() => setCrmActiveTab("users")}>` da barra de abas horizontal superior.
+   - A barra volta a exibir exclusivamente os módulos essenciais da rotina diária:
+     * Visão Geral (Cockpit)
+     * Produtos, Frete & Redes
+     * Estoque Central (Kardex)
+     * Pedidos & Vendas
+     * Tráfego & Origens
+     * Financeiro (DRE)
+   - As ferramentas de "Importar & Exportar" e "Usuários & Perfis" continuam totalmente funcionais e disponíveis para Gerentes e Administradores através do menu dropdown do perfil no topo (`Navigation.tsx`) e via busca rápida no Spotlight (`Ctrl+K`).
+2. Limpeza de imports não utilizados em `src/app/admin/page.tsx`.
+
+COMO TESTAR:
+1. Acesse o CRM em `/admin`.
+2. Observe a barra horizontal de abas: os botões "Importar & Exportar" e "Usuários & Perfis" não aparecem mais ali.
+3. Para acessar "Importar & Exportar" ou "Usuários & Perfis", basta clicar na foto/nome do usuário no topo direito ou pressionar Ctrl+K.
+
+COMO REVERTER:
+1. Executar git checkout HEAD~1 -- src/app/admin/page.tsx HISTORICO_ALTERACOES.txt
+2. Executar npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #041
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 27/11/2026
+HORÁRIO              : 16:53:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"[BIA MAKES — SITE COMERCIAL | REVISÃO GERAL E PACOTE DE MELHORIAS DE UX, CHECKOUT E MODAL DE PRODUTO]"
+
+MOTIVO DO AJUSTE:
+1. Limpeza e Unificação do Modal de Detalhes do Produto (`Quick View` em `Storefront.tsx`):
+   - Removidos do Quick View as pills de tags dermatológicas (`quickViewProduct.tags`), o bloco técnico "Link Direto c/ Estoque e Frete" e os botões de saída para Shopee/Mercado Livre/Instagram, mantendo foco 100% na conversão dentro do site.
+   - Mantido o Seletor de Quantidade (`- 1 +`) limitado ao estoque do tom selecionado e unificado o simulador de CEP com `selectedCartCarrierId` e as 4 transportadoras reais.
+2. Validação de Cartão de Crédito e Tecla `Escape` no Checkout (`CheckoutModal.tsx`):
+   - Adicionada validação obrigatória na Etapa 2 (`paymentMethod === "CARTAO"`): 16 dígitos do cartão, nome impresso (>= 3 caracteres), validade `MM/AA` não expirada e CVV de 3 ou 4 dígitos, exibindo alerta visual `paymentError` e bloqueando envio inválido.
+   - Adicionado fechamento via tecla `Escape` quando não estiver submetendo.
+3. Sacola de Compras, Toast com Pausa no Hover e Rodapé Interativo (`Storefront.tsx`):
+   - `CART DRAWER` agora fecha ao clicar no backdrop escuro (`onClick={onCloseCart}`) ou ao pressionar `Escape`.
+   - Toast de produto adicionado (`addedSuccessModal`) ajustado para `3500ms` (3,5s) com pausa automática do timer em `onMouseEnter` e retomada em `onMouseLeave`.
+   - Atualizados os textos do Hero Banner (`"Frete Grátis acima de R$ 150 — Cálculo automático por CEP"`), cabeçalho do Catálogo e categorias clicáveis no Rodapé com scroll suave até `#catalogo`.
+
+COMO REVERTER:
+1. Executar git revert HEAD e npm run build.
+
+--------------------------------------------------------------------------------
+REGISTRO #040
+--------------------------------------------------------------------------------
+DATA DA ALTERAÇÃO    : 27/11/2026
+HORÁRIO              : 16:48:00 (Horário de Brasília - UTC-3)
+RESPONSÁVEL TÉCNICO  : Antigravity AI Coding Assistant
+USUÁRIO NOTIFICADO   : eduardo.nunes (Master Admin)
+
+PROMPT / SOLICITAÇÃO EXECUTADA:
+"Pacote completo de melhorias de UX, conversão, integridade de estoque/Kardex, navegação administrativa e Importação/Exportação CSV com Upsert"
+
+MOTIVO DO AJUSTE:
+1. Loja Virtual B2C (`src/components/storefront/Storefront.tsx` e `src/app/p/[sku]/page.tsx`):
+   - Ajustado tempo do toast flutuante `addedSuccessModal` (`addedModalTimerRef`) para `4000` ms (4 segundos).
+   - Adicionado seletor de quantidade (`- 1 +`) no Quick View e na página `/p/[sku]`, respeitando o limite de estoque disponível do tom/produto e recalculando o subtotal e o frete por quantidade.
+   - Padronizada a calculadora de CEP do Quick View com os 4 cards reais das transportadoras (`calculateCarrierQuotesByCep`: Jadlog Package, Correios PAC, Loggi Express e Correios SEDEX), exibindo o preço original riscado e selo "FRETE GRÁTIS" quando elegível.
+2. Catálogo de Produtos, Galeria e Sincronia com Kardex (`src/components/crm/ProductsManager.tsx` e `src/context/BiaMakesContext.tsx`):
+   - Em categorias com variações (`hasVariations(formCategory)`), o campo "Estoque Físico Central" é calculado automaticamente como a soma exata das variações e mantido `readOnly`.
+   - Preservados `images.slice(1)`, `tags` e `socialLinks.sheinUrl` na edição, e adicionado upload/URL para a 2ª imagem opcional (Textura / Swatch no hover) e tags dermatológicas.
+   - Adicionadas validações de unicidade de SKU (produtos e variações), `salePrice > 0` e geração/validação de dígito verificador GTIN-13 oficial para o EAN-13.
+   - Em `updateProduct` (`BiaMakesContext.tsx`), alterações no `physicalStock` geram automaticamente uma movimentação `AJUSTE` no Kardex.
+3. Navegação Admin, Spotlight e Segurança (`src/app/admin/page.tsx`, `src/components/Navigation.tsx` e `src/components/CommandMenuSpotlight.tsx`):
+   - Adicionados botões de acesso rápido para `"import"` (Importar & Exportar) e `"users"` (Usuários & Perfis) na barra de abas do CRM e no menu dropdown do perfil.
+   - Em `CommandMenuSpotlight.tsx`, substituído `Estoque_Reservado` por `Estoque_Disponivel` na exportação CSV e adicionada exigência de perfil `ADMIN` Master (ou senha do operador selecionado) para alternar perfil pelo prefixo `@`.
+4. Importação e Exportação CSV (`src/components/crm/ImportExportManager.tsx` e `src/context/BiaMakesContext.tsx`):
+   - Autodetecção de separador `,` ou `;`, conversão de decimais com vírgula (`28,50` -> `28.50`), fallback `/logo.jpg`, criação condicional de variações via `hasVariations(category)` e sanitização contra CSV Formula Injection.
+   - Implementado modo Upsert por SKU em `importProducts` com geração automática de movimentação `ENTRADA` (novos SKUs) ou `AJUSTE` (SKUs atualizados com mudança de saldo) no Kardex.
+
+COMO REVERTER:
+1. Executar git revert HEAD e npm run build.
+
+--------------------------------------------------------------------------------
 REGISTRO #039
 --------------------------------------------------------------------------------
 DATA DA ALTERAÇÃO    : 23/11/2026

@@ -23,7 +23,7 @@ import {
   Layers, 
   ShoppingCart, 
   DollarSign, 
-  Radar
+  Radar 
 } from "lucide-react";
 
 const ROLE_ALLOWED_TABS: Record<UserRole, string[]> = {
